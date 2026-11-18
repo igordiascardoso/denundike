@@ -4,4 +4,5 @@ contextBridge.exposeInMainWorld('bridge', {
   onSignal: (cb) => ipcRenderer.on('signal', (_e, m) => cb(m)),
   navigate: (u) => ipcRenderer.send('navigate', u),
   onStatus: (cb) => ipcRenderer.on('status', (_e, s) => cb(s)),
+  remoteControl: (ev) => ipcRenderer.send('remote-control', ev),
 });

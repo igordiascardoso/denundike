@@ -15,12 +15,31 @@
 <script>
   const $ = (id) => document.getElementById(id);
   $('mute').onchange = () => { $('v').muted = $('mute').checked; };
+  // Controle remoto: encaminha cliques e teclas para o host via data channel
+  let dc;
+  function sendRemoteEvent(payload) {
+    if (dc && dc.readyState === 'open') dc.send(JSON.stringify(payload));
+  }
+  $('v').addEventListener('click', (e) => {
+    const r = $('v').getBoundingClientRect();
+    sendRemoteEvent({ type: 'click', x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height });
+  });
+  $('v').addEventListener('mousemove', (e) => {
+    const r = $('v').getBoundingClientRect();
+    sendRemoteEvent({ type: 'move', x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height });
+  });
+  document.addEventListener('keydown', (e) => {
+    if (document.activeElement === document.body)
+      sendRemoteEvent({ type: 'key', key: e.key, code: e.code, modifiers: { shift: e.shiftKey, ctrl: e.ctrlKey, alt: e.altKey } });
+  });
+
   let pc;
   bridge.onSignal(async (m) => {
     if (m.sdp) {
       pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
       pc.onicecandidate = (e) => e.candidate && bridge.signal({ ice: e.candidate });
       pc.ontrack = (e) => { $('v').srcObject = e.streams[0]; };
+      dc = pc.createDataChannel('remote-control');
       await pc.setRemoteDescription(m.sdp);
       const ans = await pc.createAnswer();
       await pc.setLocalDescription(ans);

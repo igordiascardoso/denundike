@@ -10,6 +10,11 @@
 </style>
 <input id="url" value="https://www.youtube.com">
 <button id="go">Ir</button>
+<select id="quality" title="Qualidade do stream">
+  <option value="1080-60">1080p 60fps</option>
+  <option value="720-30">720p 30fps</option>
+  <option value="720-60">720p 60fps</option>
+</select>
 <button id="share">Compartilhar aba</button>
 <span id="st">...</span>
 <script>
@@ -18,14 +23,25 @@
   $('url').onkeydown = (e) => { if (e.key === 'Enter') $('go').click(); };
   bridge.onStatus((s) => { $('st').textContent = s.join(' | '); $('st').title = s.join('\n'); });
 
+  const QUALITY = {
+    '1080-60': { width: 1920, height: 1080, frameRate: 60 },
+    '720-30':  { width: 1280, height: 720,  frameRate: 30 },
+    '720-60':  { width: 1280, height: 720,  frameRate: 60 },
+  };
+
   let pc;
   $('share').onclick = async () => {
-    const stream = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 60 }, audio: true });
+    const q = QUALITY[$('quality').value];
+    const stream = await navigator.mediaDevices.getDisplayMedia({ video: q, audio: true });
     console.log('tracks', stream.getTracks().map(t => t.kind + ':' + t.label));
     $('st').textContent = 'compartilhando: ' + stream.getTracks().map(t => t.kind).join('+');
     pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
     stream.getTracks().forEach((t) => pc.addTrack(t, stream));
     pc.onicecandidate = (e) => e.candidate && bridge.signal({ ice: e.candidate });
+    // Recebe data channel de controle remoto criado pelo convidado
+    pc.ondatachannel = (e) => {
+      e.channel.onmessage = (ev) => bridge.remoteControl(JSON.parse(ev.data));
+    };
     // pede bitrate alto no video
     // Bitrate: tenta definir; ignora se falhar antes da negociacao SDP
     const sender = pc.getSenders().find((s) => s.track && s.track.kind === 'video');

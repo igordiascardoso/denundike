@@ -80,5 +80,27 @@ ipcMain.on('navigate', (e, url) => {
   siteView.webContents.loadURL(url);
 });
 
+// Controle remoto: recebe eventos do convidado e aplica no navegador via CDP
+ipcMain.on('remote-control', async (_e, ev) => {
+  const wc = siteView.webContents;
+  if (!wc.debugger.isAttached()) {
+    try { wc.debugger.attach('1.3'); } catch (_) { return; }
+  }
+  const { width, height } = siteView.getBounds();
+  const cx = Math.round((ev.x || 0) * width);
+  const cy = Math.round((ev.y || 0) * height);
+
+  if (ev.type === 'click') {
+    await wc.debugger.sendCommand('Input.dispatchMouseEvent', { type: 'mousePressed', button: 'left', x: cx, y: cy, clickCount: 1 });
+    await wc.debugger.sendCommand('Input.dispatchMouseEvent', { type: 'mouseReleased', button: 'left', x: cx, y: cy, clickCount: 1 });
+  } else if (ev.type === 'move') {
+    await wc.debugger.sendCommand('Input.dispatchMouseEvent', { type: 'mouseMoved', x: cx, y: cy });
+  } else if (ev.type === 'key') {
+    const mods = ((ev.modifiers?.shift ? 8 : 0) | (ev.modifiers?.ctrl ? 2 : 0) | (ev.modifiers?.alt ? 1 : 0));
+    await wc.debugger.sendCommand('Input.dispatchKeyEvent', { type: 'keyDown', key: ev.key, code: ev.code, modifiers: mods });
+    await wc.debugger.sendCommand('Input.dispatchKeyEvent', { type: 'keyUp', key: ev.key, code: ev.code, modifiers: mods });
+  }
+});
+
 app.whenReady().then(createWindows);
 app.on('window-all-closed', () => app.quit());
