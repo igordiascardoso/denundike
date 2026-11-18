@@ -59,9 +59,11 @@ Sub-decisão do navegador compartilhado (a validar):
 
 - O Electron abre o YouTube em uma aba (WebContentsView). Funciona.
 - Sem bloqueador, aparece anúncio do YouTube.
-- A extensão AdGuard (v5.5.x, MV3) **carrega com avisos e um erro de execução** no Electron (`tabs.create`, permissões desconhecidas). Suporte parcial. O dono viu uma sessão sem anúncio, mas isso não prova que o bloqueio funciona.
-- A biblioteca `@cliqz/adblocker-electron` **não é compatível** com o Electron 45 (provavelmente causou a tela branca). Descartada.
-- **Ainda não testado:** o compartilhamento da aba para o convidado por WebRTC, o áudio por loopback (eco/vazamento), fps, atraso e banda, e o Spotify (precisa de DRM Widevine, que o Electron padrão não tem; existe o fork da castLabs).
+- A extensão AdGuard (v5.5.x, MV3) **carrega com avisos e um erro de execução** no Electron (`tabs.create`, permissões desconhecidas). Suporte parcial.
+- A biblioteca `@cliqz/adblocker-electron` **não é compatível** com o Electron 45. Descartada.
+- **Código do spike preparado (2026-11-18):** bug `setParameters` antes do `createOffer` corrigido (try/catch); seletor de qualidade 1080p/720p/fps no host; controle remoto via WebRTC data channel + CDP (`Input.dispatchMouseEvent`, `Input.dispatchKeyEvent`) implementado em viewer.html, host.html, main.js e preload.js.
+- **Aguardando testes manuais** (resultados em `spike/RESULTS.md`): stream WebRTC host→viewer, eco/vazamento de áudio, fps/Mbps reais, DRM com Chrome (hw acceleration off) e castLabs, e clique remoto via CDP.
+- **Como rodar:** `cd spike && unset ELECTRON_RUN_AS_NODE && npm start`
 - Atenção ao rodar o Electron em terminais do VS Code: a variável `ELECTRON_RUN_AS_NODE` precisa estar desligada (`unset ELECTRON_RUN_AS_NODE`).
 
 ## 6. Decisões tomadas pelo dono (com a interface aprovada)
