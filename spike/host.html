@@ -35,15 +35,15 @@
     const stream = await navigator.mediaDevices.getDisplayMedia({ video: q, audio: true });
     console.log('tracks', stream.getTracks().map(t => t.kind + ':' + t.label));
     $('st').textContent = 'compartilhando: ' + stream.getTracks().map(t => t.kind).join('+');
+    // favor fps sobre resolucao sob pressao de banda
+    stream.getVideoTracks()[0].contentHint = 'motion';
     pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
     stream.getTracks().forEach((t) => pc.addTrack(t, stream));
-    pc.onicecandidate = (e) => e.candidate && bridge.signal({ ice: e.candidate });
-    // Recebe data channel de controle remoto criado pelo convidado
-    pc.ondatachannel = (e) => {
-      e.channel.onmessage = (ev) => bridge.remoteControl(JSON.parse(ev.data));
-    };
-    // pede bitrate alto no video
-    // Bitrate: tenta definir; ignora se falhar antes da negociacao SDP
+    pc.onicecandidate = (e) => e.candidate && bridge.signal({ ice: e.candidate.toJSON() });
+    // data channel criado pelo ofertante (host) — JSEP exige que o ofertante crie
+    const dc = pc.createDataChannel('remote-control');
+    dc.onmessage = (ev) => bridge.remoteControl(JSON.parse(ev.data));
+    // Bitrate pre-negociacao (pode falhar; re-aplica apos answer)
     const sender = pc.getSenders().find((s) => s.track && s.track.kind === 'video');
     try {
       const p = sender.getParameters();
@@ -51,14 +51,30 @@
         p.encodings[0].maxBitrate = 6_000_000;
         p.encodings[0].maxFramerate = 60;
         await sender.setParameters(p);
+        console.log('bitrate cap: aplicado pre-negociacao');
       }
-    } catch (_) {}
+    } catch (e) { console.log('bitrate cap pre-negociacao falhou:', e.message); }
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
-    bridge.signal({ sdp: pc.localDescription });
+    bridge.signal({ sdp: pc.localDescription.toJSON() });
   };
   bridge.onSignal(async (m) => {
-    if (m.sdp && pc) await pc.setRemoteDescription(m.sdp);
+    if (m.sdp && pc) {
+      await pc.setRemoteDescription(m.sdp);
+      // Re-aplica bitrate apos negociacao SDP quando encodings ja existem
+      const sender = pc.getSenders().find((s) => s.track && s.track.kind === 'video');
+      if (sender) {
+        try {
+          const p = sender.getParameters();
+          if (p.encodings.length > 0) {
+            p.encodings[0].maxBitrate = 6_000_000;
+            p.encodings[0].maxFramerate = 60;
+            await sender.setParameters(p);
+            console.log('bitrate cap: aplicado pos-negociacao');
+          }
+        } catch (e) { console.log('bitrate cap pos-negociacao falhou:', e.message); }
+      }
+    }
     if (m.ice && pc) await pc.addIceCandidate(m.ice);
   });
 </script>

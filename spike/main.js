@@ -54,11 +54,18 @@ async function createWindows() {
   layoutSite();
 
   // Quando o anfitriao pede getDisplayMedia, entrega SO o frame da aba + audio de loopback.
-  hostWin.webContents.session.setDisplayMediaRequestHandler((request, callback) => {
-    callback({
-      video: siteView.webContents.mainFrame,
-      audio: 'loopback', // audio de TODO o sistema (o que queremos medir)
-    });
+  // Com CAPTURE=chrome, captura janela do Google Chrome (para teste de DRM).
+  hostWin.webContents.session.setDisplayMediaRequestHandler(async (_request, callback) => {
+    if (process.env.CAPTURE === 'chrome') {
+      const sources = await desktopCapturer.getSources({ types: ['window'] });
+      const src = sources.find((s) => /chrome|google/i.test(s.name));
+      if (src) {
+        console.log('CAPTURE=chrome: usando janela', src.name);
+        return callback({ video: src, audio: 'loopback' });
+      }
+      console.log('CAPTURE=chrome: Chrome nao encontrado. Fontes:', sources.map((s) => s.name));
+    }
+    callback({ video: siteView.webContents.mainFrame, audio: 'loopback' });
   });
 
   viewerWin = new BrowserWindow({
@@ -84,22 +91,26 @@ ipcMain.on('navigate', (e, url) => {
 ipcMain.on('remote-control', async (_e, ev) => {
   const wc = siteView.webContents;
   if (!wc.debugger.isAttached()) {
-    try { wc.debugger.attach('1.3'); } catch (_) { return; }
+    try { wc.debugger.attach('1.3'); }
+    catch (e) { console.log('CDP attach falhou:', e.message); return; }
   }
   const { width, height } = siteView.getBounds();
   const cx = Math.round((ev.x || 0) * width);
   const cy = Math.round((ev.y || 0) * height);
-
-  if (ev.type === 'click') {
-    await wc.debugger.sendCommand('Input.dispatchMouseEvent', { type: 'mousePressed', button: 'left', x: cx, y: cy, clickCount: 1 });
-    await wc.debugger.sendCommand('Input.dispatchMouseEvent', { type: 'mouseReleased', button: 'left', x: cx, y: cy, clickCount: 1 });
-  } else if (ev.type === 'move') {
-    await wc.debugger.sendCommand('Input.dispatchMouseEvent', { type: 'mouseMoved', x: cx, y: cy });
-  } else if (ev.type === 'key') {
-    const mods = ((ev.modifiers?.shift ? 8 : 0) | (ev.modifiers?.ctrl ? 2 : 0) | (ev.modifiers?.alt ? 1 : 0));
-    await wc.debugger.sendCommand('Input.dispatchKeyEvent', { type: 'keyDown', key: ev.key, code: ev.code, modifiers: mods });
-    await wc.debugger.sendCommand('Input.dispatchKeyEvent', { type: 'keyUp', key: ev.key, code: ev.code, modifiers: mods });
-  }
+  try {
+    if (ev.type === 'click') {
+      await wc.debugger.sendCommand('Input.dispatchMouseEvent', { type: 'mousePressed', button: 'left', x: cx, y: cy, clickCount: 1 });
+      await wc.debugger.sendCommand('Input.dispatchMouseEvent', { type: 'mouseReleased', button: 'left', x: cx, y: cy, clickCount: 1 });
+    } else if (ev.type === 'move') {
+      await wc.debugger.sendCommand('Input.dispatchMouseEvent', { type: 'mouseMoved', x: cx, y: cy });
+    } else if (ev.type === 'key') {
+      const mods = ((ev.modifiers?.shift ? 8 : 0) | (ev.modifiers?.ctrl ? 2 : 0) | (ev.modifiers?.alt ? 1 : 0));
+      const isText = ev.key.length === 1;
+      const kp = { key: ev.key, code: ev.code, windowsVirtualKeyCode: ev.keyCode || 0, modifiers: mods };
+      await wc.debugger.sendCommand('Input.dispatchKeyEvent', { type: isText ? 'keyDown' : 'rawKeyDown', ...kp, text: isText ? ev.key : '' });
+      await wc.debugger.sendCommand('Input.dispatchKeyEvent', { type: 'keyUp', ...kp });
+    }
+  } catch (e) { console.log('CDP sendCommand falhou:', e.message); }
 });
 
 app.whenReady().then(createWindows);

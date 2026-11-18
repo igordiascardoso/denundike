@@ -20,30 +20,39 @@
   function sendRemoteEvent(payload) {
     if (dc && dc.readyState === 'open') dc.send(JSON.stringify(payload));
   }
+  // Coordenadas corrigidas para letterboxing (object-fit: contain)
+  function videoCoords(e) {
+    const v = $('v'), r = v.getBoundingClientRect();
+    if (!v.videoWidth || !v.videoHeight) return null;
+    const s = Math.min(r.width / v.videoWidth, r.height / v.videoHeight);
+    const w = v.videoWidth * s, h = v.videoHeight * s;
+    const ox = r.left + (r.width - w) / 2, oy = r.top + (r.height - h) / 2;
+    const x = (e.clientX - ox) / w, y = (e.clientY - oy) / h;
+    return (x >= 0 && x <= 1 && y >= 0 && y <= 1) ? { x, y } : null;
+  }
   $('v').addEventListener('click', (e) => {
-    const r = $('v').getBoundingClientRect();
-    sendRemoteEvent({ type: 'click', x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height });
+    const c = videoCoords(e); if (c) sendRemoteEvent({ type: 'click', ...c });
   });
   $('v').addEventListener('mousemove', (e) => {
-    const r = $('v').getBoundingClientRect();
-    sendRemoteEvent({ type: 'move', x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height });
+    const c = videoCoords(e); if (c) sendRemoteEvent({ type: 'move', ...c });
   });
   document.addEventListener('keydown', (e) => {
     if (document.activeElement === document.body)
-      sendRemoteEvent({ type: 'key', key: e.key, code: e.code, modifiers: { shift: e.shiftKey, ctrl: e.ctrlKey, alt: e.altKey } });
+      sendRemoteEvent({ type: 'key', key: e.key, code: e.code, keyCode: e.keyCode, modifiers: { shift: e.shiftKey, ctrl: e.ctrlKey, alt: e.altKey } });
   });
 
   let pc;
   bridge.onSignal(async (m) => {
     if (m.sdp) {
       pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
-      pc.onicecandidate = (e) => e.candidate && bridge.signal({ ice: e.candidate });
+      pc.onicecandidate = (e) => e.candidate && bridge.signal({ ice: e.candidate.toJSON() });
       pc.ontrack = (e) => { $('v').srcObject = e.streams[0]; };
-      dc = pc.createDataChannel('remote-control');
+      // data channel criado pelo host; aguarda aqui
+      pc.ondatachannel = (e) => { dc = e.channel; };
       await pc.setRemoteDescription(m.sdp);
       const ans = await pc.createAnswer();
       await pc.setLocalDescription(ans);
-      bridge.signal({ sdp: pc.localDescription });
+      bridge.signal({ sdp: pc.localDescription.toJSON() });
       startStats();
     }
     if (m.ice && pc) await pc.addIceCandidate(m.ice);
