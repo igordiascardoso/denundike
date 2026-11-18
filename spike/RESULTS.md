@@ -45,9 +45,9 @@ Data: 2026-11-18
 **Status:** [ ] Testado
 
 **Como testar:**
-1. Atualizar `host.html` constraints para `{ width: 1920, height: 1080, frameRate: 60 }`
+1. Selecionar **1080p 60fps** no dropdown do ANFITRIAO (seletor já na barra)
 2. Abrir vídeo 1080p60 no YouTube na aba do anfitrião
-3. Ler stats no painel do CONVIDADO após 30 s
+3. Ler stats no painel do CONVIDADO após 30 s (frameWidth/frameHeight mostram a resolução real)
 
 **Resultado 1080p/60fps:**
 - Resolução real: __________
@@ -70,8 +70,9 @@ Data: 2026-11-18
 **Como testar:**
 1. `chrome://settings/system` → desligar aceleração de hardware → reiniciar Chrome
 2. Confirmar que Netflix/Spotify toca normalmente no Chrome
-3. Iniciar spike, clicar "Compartilhar aba", selecionar janela do Chrome no seletor
-4. Tocar conteúdo DRM no Chrome, verificar viewer
+3. Iniciar spike com `CAPTURE=chrome npm start` — o app seleciona a janela Chrome automaticamente
+4. Clicar "Compartilhar aba" na janela ANFITRIAO
+5. Tocar conteúdo DRM no Chrome, verificar viewer
 
 **Resultado:**
 - Captura da janela Chrome funciona: sim / não
