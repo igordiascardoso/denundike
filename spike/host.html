@@ -1,0 +1,41 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Anfitriao</title>
+<style>
+  body { margin:0; height:56px; display:flex; gap:8px; align-items:center; padding:0 10px;
+         font:13px system-ui; background:#1e1f22; color:#ddd; overflow:hidden }
+  input { flex:1; padding:6px 8px; background:#111; color:#eee; border:1px solid #444; border-radius:4px }
+  button { padding:6px 12px; cursor:pointer }
+  #st { font-size:11px; color:#8a8; max-width:260px; overflow:hidden; white-space:nowrap }
+</style>
+<input id="url" value="https://www.youtube.com">
+<button id="go">Ir</button>
+<button id="share">Compartilhar aba</button>
+<span id="st">...</span>
+<script>
+  const $ = (id) => document.getElementById(id);
+  $('go').onclick = () => bridge.navigate($('url').value);
+  $('url').onkeydown = (e) => { if (e.key === 'Enter') $('go').click(); };
+  bridge.onStatus((s) => { $('st').textContent = s.join(' | '); $('st').title = s.join('\n'); });
+
+  let pc;
+  $('share').onclick = async () => {
+    const stream = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 60 }, audio: true });
+    console.log('tracks', stream.getTracks().map(t => t.kind + ':' + t.label));
+    $('st').textContent = 'compartilhando: ' + stream.getTracks().map(t => t.kind).join('+');
+    pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+    stream.getTracks().forEach((t) => pc.addTrack(t, stream));
+    pc.onicecandidate = (e) => e.candidate && bridge.signal({ ice: e.candidate });
+    // pede bitrate alto no video
+    const sender = pc.getSenders().find((s) => s.track && s.track.kind === 'video');
+    const p = sender.getParameters(); p.encodings = [{ maxBitrate: 6_000_000, maxFramerate: 60 }];
+    await sender.setParameters(p);
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+    bridge.signal({ sdp: pc.localDescription });
+  };
+  bridge.onSignal(async (m) => {
+    if (m.sdp && pc) await pc.setRemoteDescription(m.sdp);
+    if (m.ice && pc) await pc.addIceCandidate(m.ice);
+  });
+</script>

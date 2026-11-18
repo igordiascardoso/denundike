@@ -1,0 +1,50 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Convidado</title>
+<style>
+  body { margin:0; background:#000; color:#ddd; font:13px system-ui; display:flex; flex-direction:column; height:100vh }
+  video { flex:1; min-height:0; width:100%; background:#000 }
+  #bar { padding:6px 10px; background:#1e1f22; display:flex; gap:14px; align-items:center }
+  #stats { font:12px ui-monospace,monospace; color:#9c9 }
+</style>
+<video id="v" autoplay playsinline muted></video>
+<div id="bar">
+  <label><input type="checkbox" id="mute" checked> mudo (evita eco no mesmo PC)</label>
+  <span id="stats">aguardando anfitriao...</span>
+</div>
+<script>
+  const $ = (id) => document.getElementById(id);
+  $('mute').onchange = () => { $('v').muted = $('mute').checked; };
+  let pc;
+  bridge.onSignal(async (m) => {
+    if (m.sdp) {
+      pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+      pc.onicecandidate = (e) => e.candidate && bridge.signal({ ice: e.candidate });
+      pc.ontrack = (e) => { $('v').srcObject = e.streams[0]; };
+      await pc.setRemoteDescription(m.sdp);
+      const ans = await pc.createAnswer();
+      await pc.setLocalDescription(ans);
+      bridge.signal({ sdp: pc.localDescription });
+      startStats();
+    }
+    if (m.ice && pc) await pc.addIceCandidate(m.ice);
+  });
+
+  function startStats() {
+    let lastBytes = 0, lastT = 0;
+    setInterval(async () => {
+      const rep = await pc.getStats();
+      let out = '';
+      rep.forEach((r) => {
+        if (r.type === 'inbound-rtp' && r.kind === 'video') {
+          const dt = (r.timestamp - lastT) / 1000;
+          const mbps = lastT ? ((r.bytesReceived - lastBytes) * 8 / dt / 1e6).toFixed(2) : '-';
+          lastBytes = r.bytesReceived; lastT = r.timestamp;
+          out += `video ${r.frameWidth}x${r.frameHeight} ${Math.round(r.framesPerSecond || 0)}fps ${mbps}Mbps perdidos=${r.packetsLost} `;
+        }
+        if (r.type === 'inbound-rtp' && r.kind === 'audio') out += `| audio ok (${r.packetsReceived} pkts)`;
+      });
+      $('stats').textContent = out || 'sem dados';
+    }, 1000);
+  }
+</script>
