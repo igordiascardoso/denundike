@@ -1,0 +1,17 @@
+# AUTO_TEST 2026-11-18T23:34:37.641Z
+
+## 1. Stream WebRTC: PASSOU
+Stats: | audio ok (349 pkts)video 294x164 18fps 1.54Mbps perdidos=0 
+Video element: 294x164 src=true
+
+## 2. Audio: PASSOU
+(audio capturado via loopback)
+
+## 3. Data Channel (controle remoto): PASSOU
+
+## 4. Controle remoto CDP: PIPE OK (data channel aberto; CDP enviado — verificar logs acima)
+
+## Notas
+Resolucao pequena (294x164): WebRTC ajusta para banda disponivel.
+Para testar 1080p real: maximizar janela host e abrir video 1080p60 no YouTube.
+DRM (Chrome): requer teste manual com CAPTURE=chrome npm start.

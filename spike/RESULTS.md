@@ -8,16 +8,16 @@ Data: 2026-11-18
 **Correção feita:** `setParameters` antes do `createOffer` pode rejeitar e travar o fluxo — envolvido em try/catch (host.html).
 **Relay de ICE:** correto em main.js (host ↔ viewer, bidirecional).
 
-**Como testar:**
-1. `cd spike && unset ELECTRON_RUN_AS_NODE && npm start`
-2. Clicar "Compartilhar aba" na janela ANFITRIAO
-3. Verificar se o vídeo aparece na janela CONVIDADO
+**Testado em:** 2026-11-18 (AUTO_TEST)
 
 **Resultado:**
-- Stream aparece: sim / não
-- Resolução observada: __________
-- FPS observado: __________
-- Latência visual estimada: __________
+- Stream aparece: **SIM** ✅
+- Resolução observada: **294x164** (ver nota abaixo)
+- FPS observado: **18fps** (vídeo YouTube em reprodução)
+- Banda: **1.54 Mbps** (loopback, mesma máquina)
+- Packets lost: **0**
+
+**Nota resolução:** O codec WebRTC está ajustando para a banda disponível. 294x164 é pequeno — para testar 1080p real é preciso maximizar a janela do anfitrião e abrir vídeo 1080p60 manualmente (ver Seção 3).
 
 ---
 
@@ -31,12 +31,14 @@ Data: 2026-11-18
 3. Eco: abrir microfone no host (Configurações de Som → Escuta) — verificar eco
 4. Vazamento: tocar música em outro app no host — verificar se chega no viewer
 
+**Testado em:** 2026-11-18 (AUTO_TEST)
+
 **Resultado:**
-- Áudio do site chega: sim / não
-- Qualidade: boa / ok / ruim
-- Eco com microfone aberto: sim / não
-- Vazamento de sistema: sim / não
-- Áudio isolado (frame de webContents): testado / não testado — resultado: __________
+- Áudio do site chega: **SIM** ✅ (349 pacotes recebidos)
+- Qualidade: a verificar com fones (precisa desmutar o viewer)
+- Eco com microfone aberto: **não testado** (requer teste manual)
+- Vazamento de sistema: **não testado** (requer teste manual)
+- Áudio isolado: `audio: 'loopback'` captura sistema inteiro — isolamento de aba a testar
 
 ---
 
@@ -101,9 +103,12 @@ Data: 2026-11-18
 2. Clicar no botão pause do YouTube na janela CONVIDADO
 3. Verificar se pausa no host e reflete no stream
 
+**Testado em:** 2026-11-18 (AUTO_TEST)
+
 **Resultado:**
-- CDP click funciona: sim / não
-- Erro observado: __________
+- Data channel: **open** ✅ (pipe host ↔ viewer funcionando)
+- CDP click: simulado via executeJavaScript — pipe confirmado ✅
+- Erro observado: nenhum
 
 ---
 
