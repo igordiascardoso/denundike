@@ -27,9 +27,16 @@
     stream.getTracks().forEach((t) => pc.addTrack(t, stream));
     pc.onicecandidate = (e) => e.candidate && bridge.signal({ ice: e.candidate });
     // pede bitrate alto no video
+    // Bitrate: tenta definir; ignora se falhar antes da negociacao SDP
     const sender = pc.getSenders().find((s) => s.track && s.track.kind === 'video');
-    const p = sender.getParameters(); p.encodings = [{ maxBitrate: 6_000_000, maxFramerate: 60 }];
-    await sender.setParameters(p);
+    try {
+      const p = sender.getParameters();
+      if (p.encodings.length > 0) {
+        p.encodings[0].maxBitrate = 6_000_000;
+        p.encodings[0].maxFramerate = 60;
+        await sender.setParameters(p);
+      }
+    } catch (_) {}
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
     bridge.signal({ sdp: pc.localDescription });
