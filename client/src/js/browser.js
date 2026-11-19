@@ -27,6 +27,7 @@
       this.cursors = new Map();
       this.heldButton = null;
       this.hiddenLocal = false;
+      this.focused = true;
       this._lastMove = 0;
       this.el = {
         stage: $('#bStage'), view: $('#bView'), video: $('#bVideo'), cur: $('#bCur'), wait: $('#bWait'),
@@ -58,14 +59,19 @@
       const call = this.o.call;
       if (!call.inCall) return;
       if (this.state.active && this.inThisCall) {
-        if (this.hiddenLocal) { this.show(); return; }
+        if (this.hiddenLocal || !this.focused) { this.show(); return; }
         if (this.isHost) this.stop();
         else this.el.view.focus();
         return;
       }
       if (this.starting) return;
-      const ok = await window.bridge.browser.available();
-      if (!ok) { this.o.toast('Para abrir o navegador compartilhado é preciso ter o Google Chrome instalado neste computador.', true); return; }
+      const info = await window.bridge.browser.info();
+      if (!info.ok) {
+        this.o.toast('Para abrir o navegador compartilhado é preciso ter o Google Chrome (ou o Microsoft Edge) instalado neste computador.', true,
+          { label: 'Baixar o Chrome', url: 'https://www.google.com/chrome/' });
+        return;
+      }
+      if (this.o.askQuality && !(await this.o.askQuality())) return;
       this.starting = true;
       this._sendCall('browser_start', { url: 'https://www.google.com' });
     }
@@ -79,11 +85,13 @@
     hide() {
       if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
       this.hiddenLocal = true;
+      if (this.o.onHide) this.o.onHide();
       this.render();
     }
 
     show() {
       this.hiddenLocal = false;
+      if (this.o.onShow) this.o.onShow();
       this.render();
     }
 
@@ -147,7 +155,7 @@
       try {
         const r = await window.bridge.browser.start(null);
         if (!this.local) return;
-        if (r.error === 'no-chrome') return fail('Não encontrei o Google Chrome neste computador.');
+        if (r.error === 'no-chrome') return fail('Não encontrei o Google Chrome nem o Microsoft Edge neste computador.');
         if (r.error) return fail('Não consegui abrir o navegador (' + r.error + ').');
         await window.bridge.screen.choose(r.sourceId, true);
         let raw;
@@ -291,23 +299,19 @@
       this.el.stage.requestFullscreen().catch(() => this.o.toast('Não consegui abrir em tela cheia.', true));
     }
 
-    _showBar(on) {
-      const st = this.el.stage;
-      st.classList.toggle('bar', on);
-      clearTimeout(this._barT);
-      if (on) this._barT = setTimeout(() => { if (document.activeElement !== this.el.url) st.classList.remove('bar'); }, 2500);
-    }
-
     /* ── interface (todos) ── */
     render() {
+      this._render();
+      if (this.o.onRender) this.o.onRender();
+    }
+
+    _render() {
       const e = this.el;
       const session = !!(this.state.active && this.inThisCall);
-      const active = session && !this.hiddenLocal;
+      const active = session && !this.hiddenLocal && this.focused;
       e.stage.hidden = !active;
       e.banner.hidden = !(session && this.hiddenLocal);
       if (session && this.hiddenLocal) e.open.textContent = 'Sessão de navegador ativa de ' + (this.isHost ? 'você' : '@' + this.state.host_login) + ' — abrir';
-      const cs = $('#callStage');
-      if (cs) cs.classList.toggle('hasb', active);
       e.btn.classList.toggle('on', session);
       e.btn.title = active ? (this.isHost ? 'Encerrar navegador compartilhado' : 'Navegador compartilhado (ativo)') : 'Abrir navegador compartilhado';
       if (!active) { e.video.srcObject = null; this._drawCursors(); return; }
@@ -386,13 +390,7 @@
       });
       document.addEventListener('fullscreenchange', () => {
         e.stage.classList.toggle('fs', document.fullscreenElement === e.stage);
-        this._showBar(false);
         setTimeout(() => this._drawCursors(), 150);
-      });
-      e.stage.addEventListener('mousemove', (ev) => {
-        if (document.fullscreenElement !== e.stage) return;
-        if (ev.clientY < 64) this._showBar(true);
-        else if (document.activeElement !== e.url) { clearTimeout(this._barT); this._barT = setTimeout(() => this._showBar(false), 900); }
       });
       e.back.onclick = () => this._sendCall('browser_nav', { action: 'back' });
       e.fwd.onclick = () => this._sendCall('browser_nav', { action: 'forward' });

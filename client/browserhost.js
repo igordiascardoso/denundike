@@ -9,8 +9,7 @@ const path = require('path');
    protocolo DevTools. Convidados nunca falam com o Chrome: só eventos de
    mouse/teclado/navegação já filtrados passam por aqui. */
 
-function findChrome() {
-  if (process.env.DENUNDIKE_CHROME && fs.existsSync(process.env.DENUNDIKE_CHROME)) return process.env.DENUNDIKE_CHROME;
+function chromePaths() {
   const c = [];
   if (process.platform === 'win32') {
     for (const base of [process.env.ProgramFiles, process.env['ProgramFiles(x86)'], process.env.LOCALAPPDATA]) {
@@ -22,7 +21,44 @@ function findChrome() {
     c.push('/usr/bin/google-chrome-stable', '/usr/bin/google-chrome', '/opt/google/chrome/chrome',
       '/usr/bin/chromium', '/usr/bin/chromium-browser', '/snap/bin/chromium');
   }
-  return c.find((p) => fs.existsSync(p)) || null;
+  return c;
+}
+
+// O Edge vem com o Windows, também tem Widevine e fala o mesmo protocolo DevTools.
+function edgePaths() {
+  const c = [];
+  if (process.platform === 'win32') {
+    const bases = [process.env['ProgramFiles(x86)'], process.env.ProgramFiles, process.env.LOCALAPPDATA].filter(Boolean);
+    for (const base of bases) c.push(path.join(base, 'Microsoft', 'Edge', 'Application', 'msedge.exe'));
+    // instalações novas do Edge ficam em EdgeCore\<versão>\msedge.exe
+    for (const base of bases) {
+      const core = path.join(base, 'Microsoft', 'EdgeCore');
+      let vers = [];
+      try { vers = fs.readdirSync(core).filter((d) => /^\d+(\.\d+)+$/.test(d)); } catch (_) { /* sem EdgeCore */ }
+      vers.sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
+      for (const v of vers) c.push(path.join(core, v, 'msedge.exe'));
+    }
+  } else if (process.platform === 'darwin') {
+    c.push('/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge');
+  } else {
+    c.push('/usr/bin/microsoft-edge-stable', '/usr/bin/microsoft-edge', '/opt/microsoft/msedge/msedge');
+  }
+  return c;
+}
+
+function findChrome() {
+  if (process.env.DENUNDIKE_CHROME && fs.existsSync(process.env.DENUNDIKE_CHROME)) return process.env.DENUNDIKE_CHROME;
+  return chromePaths().find((p) => fs.existsSync(p)) || null;
+}
+
+// Chrome primeiro; sem ele, Edge. DENUNDIKE_BROWSER=edge força o Edge (testes).
+function findBrowser() {
+  const forced = process.env.DENUNDIKE_BROWSER;
+  const chrome = forced === 'edge' ? null : findChrome();
+  if (chrome) return { path: chrome, kind: 'chrome', name: 'Google Chrome' };
+  const edge = edgePaths().find((p) => fs.existsSync(p));
+  if (edge) return { path: edge, kind: 'edge', name: 'Microsoft Edge' };
+  return null;
 }
 
 function isWebUrl(u) {
@@ -108,12 +144,13 @@ async function stopSession(notify) {
 
 async function startSession(sender, url) {
   if (cur) await stopSession(false);
-  const chrome = findChrome();
-  if (!chrome) return { error: 'no-chrome' };
+  const found = findBrowser();
+  if (!found) return { error: 'no-chrome' };
+  const chrome = found.path;
   if (url && !isWebUrl(url)) return { error: 'bad-url' };
 
   const token = 'DNDK-' + crypto.randomBytes(5).toString('hex');
-  const profileDir = path.join(app.getPath('userData'), 'chrome-profile');
+  const profileDir = path.join(app.getPath('userData'), found.kind === 'edge' ? 'edge-profile' : 'chrome-profile');
   fs.mkdirSync(profileDir, { recursive: true });
   try { fs.unlinkSync(path.join(profileDir, 'DevToolsActivePort')); } catch (_) {}
 
@@ -181,7 +218,7 @@ async function startSession(sender, url) {
       } catch (_) {}
     }, 1000);
 
-    return { ok: true, sourceId, startUrl: url || null };
+    return { ok: true, sourceId, startUrl: url || null, browser: found.name };
   } catch (e) {
     await stopSession(false);
     return { error: e.message || 'failed' };
@@ -293,7 +330,8 @@ async function inputEvent(s, m) {
 }
 
 function registerBrowserIpc() {
-  ipcMain.handle('browser-available', () => !!findChrome());
+  ipcMain.handle('browser-available', () => !!findBrowser());
+  ipcMain.handle('browser-info', () => { const b = findBrowser(); return b ? { ok: true, name: b.name } : { ok: false, name: null }; });
   ipcMain.handle('browser-start', (e, url) => startSession(e.sender, url));
   ipcMain.handle('browser-stop', () => stopSession(false));
   ipcMain.handle('browser-nav', async (_e, n) => {
@@ -323,4 +361,4 @@ function registerBrowserIpc() {
   app.on('before-quit', () => { stopSession(false); });
 }
 
-module.exports = { registerBrowserIpc, findChrome, isWebUrl, startSession, stopSession, navigate, inputEvent, route, getCurrent: () => cur };
+module.exports = { registerBrowserIpc, findChrome, findBrowser, isWebUrl, startSession, stopSession, navigate, inputEvent, route, getCurrent: () => cur };

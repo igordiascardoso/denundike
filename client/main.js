@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, Menu, session } = require('electron');
+const { app, BrowserWindow, ipcMain, Menu, session, shell } = require('electron');
 const path = require('path');
 const { autoUpdater } = require('electron-updater');
 const { setupMedia, registerMediaIpc } = require('./media');
@@ -41,6 +41,13 @@ function createMainWindow() {
       pendingUpdateDownloaded = false;
     }
   });
+
+  const sendState = () => {
+    if (mainWin && !mainWin.isDestroyed()) {
+      mainWin.webContents.send('win-state', { maximized: mainWin.isMaximized(), fullscreen: mainWin.isFullScreen() });
+    }
+  };
+  for (const ev of ['maximize', 'unmaximize', 'enter-full-screen', 'leave-full-screen', 'resize']) mainWin.on(ev, sendState);
 
   mainWin.on('closed', () => {
     mainWin = null;
@@ -123,6 +130,19 @@ ipcMain.on('win-toggle-maximize', (e) => {
   if (w) w.isMaximized() ? w.unmaximize() : w.maximize();
 });
 ipcMain.on('win-close', (e) => winOf(e)?.close());
+ipcMain.handle('win-state', (e) => {
+  const w = winOf(e);
+  return { maximized: !!w && w.isMaximized(), fullscreen: !!w && w.isFullScreen() };
+});
+
+// Só páginas de download conhecidas abrem no navegador do sistema.
+const EXTERNAL_OK = ['https://www.google.com/chrome', 'https://www.microsoft.com/edge', 'https://github.com/igordiascardoso/denundike-releases'];
+ipcMain.handle('open-external', (_e, url) => {
+  const u = String(url || '');
+  if (!EXTERNAL_OK.some((p) => u === p || u.startsWith(p + '/') || u.startsWith(p + '?'))) return false;
+  shell.openExternal(u);
+  return true;
+});
 
 ipcMain.on('install-update', () => {
   autoUpdater.quitAndInstall();

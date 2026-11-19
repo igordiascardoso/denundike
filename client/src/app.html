@@ -264,6 +264,50 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 .rk .pt{font:800 15px var(--display);min-width:48px;text-align:right}
 .rcodebox{font:500 22px var(--mono);letter-spacing:.07em;text-align:center;background:var(--bg0);border:1px dashed var(--accent);border-radius:var(--r-m);padding:18px 8px;color:var(--accent);user-select:all;word-break:break-all}
 .chk2{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:13.5px;cursor:pointer}.chk2 input{accent-color:var(--accent);width:16px;height:16px}
+
+/* -- gestao de grupo, fontes no centro, volume, barras que somem -- */
+.btn.dng{background:var(--hot);color:#fff;border-color:transparent}.btn.dng:hover{filter:brightness(1.1)}
+#gname{cursor:pointer;border-radius:6px;padding:2px 4px;margin-left:-4px}#gname:hover{background:var(--bg3)}
+.chw{display:flex;align-items:center;position:relative}.chw .ch{flex:1;min-width:0}
+.chw .chmore{width:26px;height:26px;opacity:0;flex:none;margin-left:2px}
+.chw:hover .chmore,.chw:focus-within .chmore{opacity:1}
+.sp2{flex:1}
+.qrow{display:flex;gap:10px}.qrow .l{flex:1}
+.hint{display:block;color:var(--muted);font-size:12.5px;line-height:1.45}
+.srcbar{display:flex;gap:8px;padding:8px 12px;background:var(--bg1);border-bottom:1px solid var(--line);overflow:auto;flex:none}
+.sc{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 14px;border-radius:16px;background:var(--bg3);border:1px solid var(--line2);color:var(--text);font-weight:600;font-size:13px;white-space:nowrap}
+.sc:hover{background:var(--bg4)}.sc.on{background:var(--accent);color:var(--accent-ink);border-color:transparent}
+.sstage{display:flex;flex-direction:column;flex:1;min-height:0;background:#000;border-bottom:1px solid var(--line)}
+.sview{position:relative;flex:1;min-height:0;background:#000;outline:none}
+.sview video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000}
+.sstage:fullscreen{width:100vw;height:100vh;background:#000}
+.volctl{display:inline-flex;align-items:center;gap:2px}.volctl input[type=range]{width:96px}
+.qbtn{flex:none}
+.stool .bwho{flex:1}
+.tile[data-sk]{cursor:pointer}
+.tile .zoom{position:absolute;right:8px;top:8px;z-index:3;display:none;background:rgba(0,0,0,.65);padding:3px 9px;border-radius:12px;font-size:11.5px;font-weight:600}
+.tile[data-sk]:hover .zoom{display:block}
+.volhd{padding:6px 8px 2px}.volrow{display:flex;align-items:center;gap:8px;padding:4px 6px}.volrow input{flex:1}
+.volrow small{width:38px;text-align:right;color:var(--muted)}.volnote{display:block;color:var(--dim);font-size:11.5px;padding:2px 8px 6px}
+.qnow{color:var(--accent)!important;font-weight:600}
+.toast .tbtn{pointer-events:auto;margin-left:8px;background:#0B0F10;color:#fff;border-radius:12px;padding:3px 12px;font-weight:700}
+.toast.act{pointer-events:auto}
+.vovl{position:absolute;right:14px;bottom:14px;z-index:4;display:flex;align-items:center;gap:4px;background:rgba(0,0,0,.62);padding:4px 10px 4px 4px;border-radius:20px;transition:opacity .18s}
+.vovl input[type=range]{width:110px}
+.sstage:fullscreen .vovl{opacity:0}
+.sstage.tb:fullscreen .vovl,.sstage:fullscreen .vovl:hover,.sstage:fullscreen .vovl:focus-within{opacity:1}
+.btool{flex-wrap:wrap;row-gap:6px}
+.burl{min-width:150px}
+.btool .bwho{flex:0 1 auto;max-width:170px;overflow:hidden;text-overflow:ellipsis}
+.stool .bwho{flex:1 1 auto}
+/* barras que somem (tela cheia ou janela maximizada vendo uma fonte) */
+.app.imm{grid-template-rows:1fr}
+.app.imm .titlebar{position:fixed;top:0;left:0;right:0;z-index:80;height:38px;transform:translateY(-100%);transition:transform .18s;box-shadow:0 8px 24px rgba(0,0,0,.55)}
+.app.imm.tb .titlebar{transform:none}
+.bstage.imm,.sstage.imm{position:relative}
+.bstage.imm .btool,.sstage.imm .btool{position:absolute;top:0;left:0;right:0;z-index:5;transform:translateY(-110%);transition:transform .18s;box-shadow:0 8px 24px rgba(0,0,0,.55)}
+.app.imm.tb .bstage .btool,.app.imm.tb .sstage .btool{top:38px;transform:none}
+.bstage.imm.tb:fullscreen .btool,.sstage.imm.tb:fullscreen .btool,.bstage.imm:fullscreen .btool:focus-within,.sstage.imm:fullscreen .btool:focus-within{top:0;transform:none}
 </style>
 </head>
 <body>
@@ -299,6 +343,9 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 <symbol id="cam" viewBox="0 0 24 24"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="M16 10l5-3v10l-5-3"/></symbol>
 <symbol id="camoff" viewBox="0 0 24 24"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="M16 10l5-3v10l-5-3M3 3l18 18"/></symbol>
 <symbol id="phone" viewBox="0 0 24 24"><path d="M3 14c5-5 13-5 18 0l-2.2 3-3.3-1.8V13c-2-.8-4-.8-6 0v2.2L5.2 17z"/></symbol>
+<symbol id="vol" viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/></symbol>
+<symbol id="volx" viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9z"/><path d="M17 9l5 6M22 9l-5 6"/></symbol>
+<symbol id="cog" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9 17 7M7 17l-2.1 2.1"/></symbol>
 <symbol id="globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></symbol>
 </defs></svg>
 
@@ -338,6 +385,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
       <div class="gh">
         <h2 id="gname">—</h2>
         <div class="acts">
+          <button class="ib" id="grpMenuBtn" aria-haspopup="menu" aria-label="Menu do grupo" title="Menu do grupo"><svg class="i"><use href="#more"/></svg></button>
           <button class="ib" id="invBtn" aria-label="Convidar pessoas" title="Convidar pessoas"><svg class="i"><use href="#uplus"/></svg></button>
           <button class="ib" data-members aria-label="Ver membros" title="Membros"><svg class="i"><use href="#users"/></svg></button>
         </div>
@@ -360,6 +408,20 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
     <main class="center" id="center">
       <div class="callstage" id="callStage">
         <div class="bbanner" id="bBanner" hidden><button type="button" class="btn sm" id="bOpen">Sessão de navegador ativa — abrir</button></div>
+        <div class="srcbar" id="srcBar" hidden role="tablist" aria-label="O que ver no centro"></div>
+        <div class="sstage" id="sStage" hidden>
+          <div class="btool stool" id="sTool">
+            <span class="bwho" id="sWho"></span>
+            <span class="volctl"><button type="button" class="ib" id="sMute" aria-label="Silenciar a tela" title="Silenciar só para mim"><svg class="i"><use href="#vol"/></svg></button><input type="range" id="sVol" min="0" max="100" value="100" aria-label="Volume da tela compartilhada" title="Volume (só para você)"></span>
+            <button type="button" class="btn sm qbtn" id="sQ" title="Qualidade da transmissão"><svg class="i sm"><use href="#cog"/></svg>Qualidade</button>
+            <button type="button" class="ib" id="sHide" aria-label="Recolher a tela" title="Recolher (só para você)"><svg class="i"><use href="#x"/></svg></button>
+            <button type="button" class="ib" id="sFull" aria-label="Tela cheia" title="Tela cheia (F11 ou duplo clique; Esc sai)"><svg class="i"><use href="#fs"/></svg></button>
+          </div>
+          <div class="sview" id="sView" tabindex="0" aria-label="Tela compartilhada">
+            <video id="sVideo" autoplay playsinline></video>
+            <div class="vovl" id="sOvl"><button type="button" class="ib" id="sMute2" aria-label="Silenciar a tela" title="Silenciar só para mim"><svg class="i"><use href="#vol"/></svg></button><input type="range" id="sVol2" min="0" max="100" value="100" aria-label="Volume da tela compartilhada" title="Volume (só para você)"></div>
+          </div>
+        </div>
         <div class="bstage" id="bStage" hidden>
           <form class="btool" id="bForm">
             <button type="button" class="ib" id="bBack" aria-label="Voltar" title="Voltar"><svg class="i"><use href="#bk"/></svg></button>
@@ -367,6 +429,8 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
             <button type="button" class="ib" id="bReload" aria-label="Recarregar" title="Recarregar"><svg class="i"><use href="#reload"/></svg></button>
             <input class="burl" id="bUrl" placeholder="Digite um endereço ou pesquise" autocomplete="off" spellcheck="false" aria-label="Endereço">
             <span class="bwho" id="bWho"></span>
+            <span class="volctl"><button type="button" class="ib" id="bMute" aria-label="Silenciar o navegador" title="Silenciar só para mim"><svg class="i"><use href="#vol"/></svg></button><input type="range" id="bVol" min="0" max="100" value="100" aria-label="Volume do navegador compartilhado" title="Volume (só para você)"></span>
+            <button type="button" class="btn sm qbtn" id="bQ" title="Qualidade da transmissão"><svg class="i sm"><use href="#cog"/></svg>Qualidade</button>
             <button type="button" class="ib" id="bHide" aria-label="Recolher o navegador" title="Recolher (a sessão continua para os outros)"><svg class="i"><use href="#x"/></svg></button>
             <button type="button" class="ib" id="bFull" aria-label="Tela cheia" title="Tela cheia (F ou duplo clique; Esc sai)"><svg class="i"><use href="#fs"/></svg></button>
             <button type="button" class="btn sm" id="bStop" hidden>Encerrar</button>
@@ -384,6 +448,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
             <label>Resolução<select id="qRes"><option value="720">720p</option><option value="1080">1080p</option><option value="1440">1440p</option></select></label>
             <label>Quadros por segundo<select id="qFps"><option value="30">30 fps</option><option value="60">60 fps</option></select></label>
           </div>
+          <div class="st qnow" id="qNow"></div>
           <div class="st" id="qStat">Sem transmissão de tela/navegador no momento.</div>
           <div class="hint" id="qHint" hidden><span id="qHintTxt"></span> <button type="button" class="btn sm" id="qApply">Reduzir</button></div>
         </div>
@@ -392,7 +457,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
           <button class="cb" id="cbHp" aria-label="Silenciar o áudio da chamada" title="Fone"><svg class="i"><use href="#hp"/></svg></button>
           <button class="cb" id="cbCam" aria-label="Câmera" title="Câmera"><svg class="i"><use href="#camoff"/></svg></button>
           <button class="cb" id="cbScr" aria-label="Compartilhar tela" title="Compartilhar tela"><svg class="i"><use href="#scr"/></svg></button>
-          <button class="cb" id="cbQ" aria-label="Qualidade da transmissão" title="Qualidade da tela e do navegador"><svg class="i"><use href="#sl"/></svg></button>
+          <button class="cb" id="cbQ" aria-label="Qualidade da transmissão" title="Qualidade da tela e do navegador (resolução e fps)"><svg class="i"><use href="#cog"/></svg></button>
           <button class="cb" id="cbBrw" aria-label="Navegador compartilhado" title="Abrir navegador compartilhado"><svg class="i"><use href="#globe"/></svg></button>
           <button class="cb leave" id="cbLeave" aria-label="Sair da chamada" title="Sair da chamada"><svg class="i"><use href="#phone"/></svg></button>
         </div>
@@ -459,6 +524,13 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
   <button class="mi danger" role="menuitem" data-act="logout"><svg class="i"><use href="#out"/></svg>Sair</button>
 </div>
 
+<div class="pop" id="ctxMenu" role="menu" hidden style="min-width:220px"></div>
+<div class="pop" id="volPop" hidden style="min-width:240px">
+  <div class="volhd"><b id="volTitle">Volume</b></div>
+  <div class="volrow"><button type="button" class="ib" id="volMute" aria-label="Silenciar"><svg class="i"><use href="#vol"/></svg></button><input type="range" id="volRange" min="0" max="100" value="100" aria-label="Volume"><small id="volPct">100%</small></div>
+  <small class="volnote">Só você ouve a diferença. Fica salvo neste computador.</small>
+</div>
+
 <!-- modais -->
 <div class="ov" id="m-invite" hidden><div class="modal" role="dialog" aria-modal="true" aria-labelledby="t-inv">
   <button class="ib mx" data-close aria-label="Fechar"><svg class="i"><use href="#x"/></svg></button>
@@ -497,11 +569,42 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
   </div>
 </div></div>
 
+<div class="ov" id="m-text" hidden><div class="modal" role="dialog" aria-modal="true" aria-labelledby="txTitle">
+  <button class="ib mx" data-close aria-label="Fechar"><svg class="i"><use href="#x"/></svg></button>
+  <div class="mh"><h2 id="txTitle">Editar</h2><p id="txSub"></p></div>
+  <div class="mb">
+    <label class="l"><span id="txLabel">Nome</span><input class="in" id="txInput" maxlength="50" autocomplete="off" spellcheck="false"></label>
+    <button class="btn pri" id="txOk" type="button">Salvar</button>
+  </div>
+</div></div>
+
+<div class="ov" id="m-confirm" hidden><div class="modal" role="dialog" aria-modal="true" aria-labelledby="cfTitle">
+  <button class="ib mx" data-close aria-label="Fechar"><svg class="i"><use href="#x"/></svg></button>
+  <div class="mh"><h2 id="cfTitle">Confirmar</h2><p id="cfText"></p></div>
+  <div class="mb">
+    <label class="l" id="cfTypedBox" hidden><span id="cfTypedLabel"></span><input class="in" id="cfTyped" autocomplete="off" spellcheck="false"></label>
+    <div class="copyrow"><button class="btn" data-close type="button">Cancelar</button><button class="btn dng" id="cfOk" type="button">Confirmar</button></div>
+  </div>
+</div></div>
+
+<div class="ov" id="m-bstart" hidden><div class="modal" role="dialog" aria-modal="true" aria-labelledby="t-bs">
+  <button class="ib mx" data-close aria-label="Fechar"><svg class="i"><use href="#x"/></svg></button>
+  <div class="mh"><h2 id="t-bs">Compartilhar navegador</h2><p>Abrimos um navegador de verdade no seu computador (Chrome ou Edge) e todo mundo da chamada vê e controla junto. Escolha a qualidade da transmissão.</p></div>
+  <div class="mb">
+    <div class="qrow"><label class="l">Resolução<select class="in sel" id="bsRes"><option value="720">720p</option><option value="1080">1080p</option><option value="1440">1440p (2K)</option></select></label>
+    <label class="l">Quadros por segundo<select class="in sel" id="bsFps"><option value="30">30 fps</option><option value="60">60 fps</option></select></label></div>
+    <small class="hint">Dá para mudar durante a transmissão no botão Qualidade. Quanto maior, mais internet de envio é preciso.</small>
+    <button class="btn pri" id="bsGo" type="button">Iniciar navegador</button>
+  </div>
+</div></div>
+
 <div class="ov" id="m-screen" hidden><div class="modal" role="dialog" aria-modal="true" aria-labelledby="t-scr">
   <button class="ib mx" data-close aria-label="Fechar"><svg class="i"><use href="#x"/></svg></button>
   <div class="mh"><h2 id="t-scr">Compartilhar tela</h2><p>Escolha a tela ou a janela que todo mundo da chamada vai ver.</p></div>
   <div class="mb">
     <div class="srcgrid" id="srcGrid"></div>
+    <div class="qrow"><label class="l">Resolução<select class="in sel" id="srcRes"><option value="720">720p</option><option value="1080">1080p</option><option value="1440">1440p (2K)</option></select></label>
+    <label class="l">Quadros por segundo<select class="in sel" id="srcFps"><option value="30">30 fps</option><option value="60">60 fps</option></select></label></div>
     <label class="chk"><input type="checkbox" id="srcAudio"><span>Compartilhar também o som do computador. As vozes da chamada podem voltar como eco para os outros.</span></label>
     <button class="btn pri" id="srcGo" type="button" disabled>Compartilhar</button>
   </div>
@@ -577,13 +680,15 @@ const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const ic = (n, c = 'i sm') => `<svg class="${c}" aria-hidden="true"><use href="#${n}"/></svg>`;
 function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
-function toast(t, isErr) {
+function toast(t, isErr, act) {
   const e = $('#toast');
-  e.innerHTML = ic(isErr ? 'x' : 'ck') + esc(t);
+  e.innerHTML = ic(isErr ? 'x' : 'ck') + esc(t) + (act ? '<button type="button" class="tbtn">' + esc(act.label) + '</button>' : '');
   e.classList.toggle('err', !!isErr);
+  e.classList.toggle('act', !!act);
+  if (act) e.querySelector('.tbtn').onclick = () => { try { if (act.fn) act.fn(); else window.bridge.openExternal(act.url); } catch (_) {} e.classList.remove('show'); };
   e.classList.add('show');
   clearTimeout(toast._t);
-  toast._t = setTimeout(() => e.classList.remove('show'), isErr ? 3800 : 2400);
+  toast._t = setTimeout(() => e.classList.remove('show'), act ? 9000 : isErr ? 3800 : 2400);
 }
 
 const ERR_TXT = {
@@ -600,6 +705,12 @@ const ERR_TXT = {
   'invite quota reached': 'Você já tem o máximo de convites pendentes do seu nível. Espere alguém usar um.',
   'invalid credentials': 'Senha atual incorreta.',
   'too many attempts': 'Muitas tentativas. Tente de novo em 15 minutos.',
+  'owner must transfer ownership first': 'Você é o dono do grupo: passe a propriedade para outra pessoa antes de sair.',
+  'group needs at least one text channel': 'O grupo precisa ter pelo menos um canal de texto.',
+  'invalid name': 'Nome inválido: use de 1 a 50 caracteres.',
+  'member not found': 'Essa pessoa não está mais no grupo.',
+  'invalid role': 'Papel inválido.',
+  'channel not found': 'Esse canal não existe mais.',
 };
 function errMsg(e) {
   const m = (e && e.message) || '';
@@ -816,7 +927,7 @@ function renderGroups(groups) {
     btn.setAttribute('aria-label', g.name);
     btn.setAttribute('title', g.name);
     btn.textContent = initials(g.name);
-    btn.onclick = () => { closeFriends(); activateGroup(g).catch(fail); };
+    btn.onclick = () => { closeFriends(); activateGroup(allGroups.find(x => x.id === g.id) || g).catch(fail); };
     addBtn.before(btn);
   });
 }
@@ -845,6 +956,7 @@ const chanById = new Map(); // todos os canais já vistos (para nomes na barra d
 function renderChannels(channels) {
   const list = $('#chlist');
   channels.forEach(c => chanById.set(c.id, c));
+  window.__chs = channels;
   const texts = channels.filter(c => c.type !== 'voice');
   const voices = channels.filter(c => c.type === 'voice');
   list.innerHTML =
@@ -860,7 +972,7 @@ function renderChannels(channels) {
     btn.dataset.chid = ch.id;
     btn.innerHTML = ic('hash') + esc(ch.name);
     btn.onclick = () => activateChannel(ch).catch(fail);
-    list.appendChild(btn);
+    list.appendChild(chWrap(btn, ch));
   });
   list.insertAdjacentHTML('beforeend', '<div class="chhd"><h3>Canais de voz</h3></div>');
   voices.forEach(ch => {
@@ -870,7 +982,7 @@ function renderChannels(channels) {
     btn.title = 'Entrar na chamada';
     btn.innerHTML = ic('mic') + esc(ch.name);
     btn.onclick = () => joinVoice(ch);
-    list.appendChild(btn);
+    list.appendChild(chWrap(btn, ch));
     const people = document.createElement('div');
     people.className = 'vpeople';
     people.dataset.vpid = ch.id;
@@ -1011,12 +1123,14 @@ function connectWS() {
         if (bshare) bshare.handleWS(ev);
         break;
       case 'voice_peers': case 'voice_joined': case 'voice_left':
-      case 'signal': case 'voice_media': case 'voice_error':
+      case 'signal': case 'voice_media': case 'voice_error': case 'voice_kicked':
         call.handleWS(ev);
         break;
       case 'group_members':
-        if (activeGroup && ev.group_id === activeGroup.id && !$('#mem').hidden) loadMembers();
+        if (activeGroup && ev.group_id === activeGroup.id) refreshRoles().then(() => { if (!$('#mem').hidden) loadMembers(); });
         break;
+      default:
+        manageWS(ev);
     }
   });
 
@@ -1051,10 +1165,17 @@ async function loadMembers() {
   if (!activeGroup) { box.innerHTML = '<h3>Membros</h3><div class="empty-s">Escolha um grupo.</div>'; return; }
   try {
     const members = await api('GET', '/api/groups/' + activeGroup.id + '/members');
-    box.innerHTML = '<h3>Membros · ' + members.length + '</h3>' + members.map(m =>
-      `<div class="mrow"><span class="av ${avColor(m.id)}">${esc(initials(m.login))}<span class="st ${seenInfo(m.last_seen_at).online ? 'online' : 'offline'}"></span></span>` +
-      `<div class="t" data-prof="${esc(m.id)}" data-pl="${esc(m.login)}" data-ps="${esc(seenInfo(m.last_seen_at).iso)}" style="cursor:pointer"><b>${esc(m.login)}</b><small>@${esc(m.login)} · ${esc(seenInfo(m.last_seen_at).text)}</small></div>` +
-      (m.is_owner ? '<span class="chip">Dono</span>' : '') + '</div>').join('');
+    const my = (activeGroup && activeGroup.role) || 'member';
+    box.innerHTML = '<h3>Membros · ' + members.length + '</h3>' + members.map(m => {
+      const sn = seenInfo(m.last_seen_at);
+      const chip = m.role === 'owner' ? '<span class="chip">Dono</span>' : m.role === 'admin' ? '<span class="chip neu">Admin</span>' : '';
+      const act = (m.id !== USER.id && memberActions(my, m).length)
+        ? `<button class="ib" data-mact="${esc(m.id)}" aria-label="Ações para ${esc(m.login)}" title="Ações">${ic('more', 'i')}</button>` : '';
+      return `<div class="mrow"><span class="av ${avColor(m.id)}">${esc(initials(m.login))}<span class="st ${sn.online ? 'online' : 'offline'}"></span></span>` +
+        `<div class="t" data-prof="${esc(m.id)}" data-pl="${esc(m.login)}" data-ps="${esc(sn.iso)}" style="cursor:pointer"><b>${esc(m.login)}</b><small>@${esc(m.login)} · ${esc(sn.text)}</small></div>` +
+        chip + act + '</div>';
+    }).join('');
+    window.__members = members;
   } catch (e) {
     box.innerHTML = '<h3>Membros</h3><div class="empty-s">Não foi possível carregar.</div>';
     fail(e);
@@ -1284,7 +1405,7 @@ const call = new CallManager({
   me: { id: USER ? USER.id : '', login: USER ? USER.login : '' },
   send: obj => window.bridge.ws.send(obj),
   getIce: async () => (await api('GET', '/api/ice')).iceServers,
-  onChange: () => { renderCall(); if (bshare) bshare.render(); },
+  onChange: () => { renderCall(); if (bshare) bshare.render(); if (window.renderView) renderView(); },
   onLeave: () => { if (bshare) bshare.reset(); },
   onQuality: () => { if (bshare) bshare.applyQuality(); syncQuality(); },
   onStrain: info => showStrain(info),
@@ -1296,7 +1417,11 @@ bshare = new BrowserShare({
   me: { id: USER ? USER.id : '', login: USER ? USER.login : '' },
   call,
   send: obj => window.bridge.ws.send(obj),
-  toast: (m, err) => toast(m, err),
+  toast: (m, err, act) => toast(m, err, act),
+  askQuality: () => askBrowserQuality(),
+  onRender: () => { if (window.renderView) renderView(); },
+  onHide: () => { if (window.viewHide) viewHide(); },
+  onShow: () => { if (window.selectSource) selectSource('browser'); },
 });
 window.__bshare = bshare;
 
@@ -1327,7 +1452,7 @@ function renderVoicePresence() {
       call.peers.forEach(p => { if (p.speaking) speaking.add(p.id); });
     }
     box.innerHTML = users.map(u =>
-      `<div class="vp${speaking.has(u.user_id) ? ' sp' : ''}"><span class="av ${avColor(u.user_id)}">${esc(initials(u.login))}</span>${esc(u.login)}</div>`
+      `<div class="vp${speaking.has(u.user_id) ? ' sp' : ''}" data-uid="${esc(u.user_id)}" data-ul="${esc(u.login)}"><span class="av ${avColor(u.user_id)}">${esc(initials(u.login))}</span>${esc(u.login)}</div>`
     ).join('');
   });
   $$('[data-vcid]').forEach(b => b.classList.toggle('live', b.dataset.vcid === call.channelId));
@@ -1346,13 +1471,16 @@ const tileEls = new Map();
 function buildTile(t) {
   const el = document.createElement('div');
   el.className = 'tile' + (t.self ? ' self' : '') + (t.screen ? ' screen' : '');
-  el.innerHTML = `<span class="av lg ${avColor(t.userId)}">${esc(initials(t.login))}</span><video autoplay playsinline></video><div class="who"><span class="wn"></span><span class="wi"></span></div>`;
+  el.innerHTML = `<span class="av lg ${avColor(t.userId)}">${esc(initials(t.login))}</span><video autoplay playsinline></video><div class="who"><span class="wn"></span><span class="wi"></span></div>` + (t.screen ? '<span class="zoom">Ver no centro</span>' : '');
+  el.dataset.uid = t.userId;
+  if (t.screen) { el.dataset.sk = 'screen:' + t.userId; el.title = 'Clique para ver no centro · botão direito ajusta o volume'; }
+  else if (!t.self) el.title = 'Botão direito ajusta o volume';
   return el;
 }
 function updateTile(el, t) {
   const v = el.querySelector('video');
   if (v.srcObject !== (t.stream || null)) { v.srcObject = t.stream || null; const pr = v.play(); if (pr && pr.catch) pr.catch(() => {}); }
-  v.muted = !!t.self || call.deafened;
+  applyTileVolume(v, t);
   el.classList.toggle('novideo', !t.hasVideo);
   el.classList.toggle('sp', !!t.speaking);
   el.dataset.state = t.state || '';
@@ -1393,6 +1521,8 @@ function pickScreenSource() {
     }
     const grid = $('#srcGrid');
     grid.innerHTML = '';
+    $('#srcRes').value = String(call.quality.h);
+    $('#srcFps').value = String(call.quality.fps);
     let sel = null, chosen = null;
     $('#srcGo').disabled = true;
     list.forEach(s => {
@@ -1409,6 +1539,7 @@ function pickScreenSource() {
     $('#srcGo').onclick = async () => {
       if (!sel) return;
       const audio = $('#srcAudio').checked;
+      call.setQuality({ h: $('#srcRes').value, fps: $('#srcFps').value });
       try { await window.bridge.screen.choose(sel.id, audio); chosen = { id: sel.id, audio }; }
       catch (e) { fail(e); }
       closeM();
@@ -1429,6 +1560,7 @@ let strainSuggestion = null;
 function syncQuality() {
   $('#qRes').value = String(call.quality.h);
   $('#qFps').value = String(call.quality.fps);
+  $('#qNow').textContent = 'Qualidade escolhida: ' + call.quality.h + 'p a ' + call.quality.fps + ' fps';
 }
 function showStrain(info) {
   strainSuggestion = info.suggestion;
@@ -1436,7 +1568,9 @@ function showStrain(info) {
   $('#qHint').hidden = false;
   toast('Seu envio está engasgando — abra a Qualidade e reduza para ' + info.suggestion.h + 'p' + info.suggestion.fps, true);
 }
-$('#cbQ').onclick = () => { const p = $('#qPop'); p.hidden = !p.hidden; syncQuality(); };
+const toggleQuality = () => { const p = $('#qPop'); p.hidden = !p.hidden; syncQuality(); };
+$('#cbQ').onclick = toggleQuality;
+$('#bQ').onclick = $('#sQ').onclick = toggleQuality;
 $('#qRes').onchange = $('#qFps').onchange = () => { $('#qHint').hidden = true; call.setQuality({ h: $('#qRes').value, fps: $('#qFps').value }); };
 $('#qApply').onclick = () => { if (strainSuggestion) call.setQuality(strainSuggestion); $('#qHint').hidden = true; };
 setInterval(() => {
@@ -1608,5 +1742,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   setInterval(refreshSocial, 10000);
 });
 </script>
+<script src="js/manage.js"></script>
+<script src="js/view.js"></script>
 </body>
 </html>

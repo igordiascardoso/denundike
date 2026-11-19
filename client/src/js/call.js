@@ -257,6 +257,14 @@
           if (p) { p.media = ev.data || {}; this._changed(); }
           break;
         }
+        case 'voice_kicked':
+          if (ev.channel_id !== this.channelId) return;
+          this.o.toast(
+            ev.reason === 'channel_deleted' ? 'O canal de voz foi excluído. Você saiu da chamada.'
+              : ev.reason === 'group_removed' ? 'Você não está mais neste grupo. Chamada encerrada.'
+              : 'Você foi removido da chamada.', true);
+          this._teardown();
+          break;
         case 'voice_error': {
           const map = {
             'room full': 'A sala está cheia (máximo de 6 pessoas).',

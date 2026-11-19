@@ -34,7 +34,11 @@ contextBridge.exposeInMainWorld('bridge', {
     minimize: () => ipcRenderer.send('win-minimize'),
     toggleMaximize: () => ipcRenderer.send('win-toggle-maximize'),
     close: () => ipcRenderer.send('win-close'),
+    state: () => ipcRenderer.invoke('win-state'),
+    onState: (cb) => ipcRenderer.on('win-state', (_e, st) => cb(st)),
   },
+
+  openExternal: (url) => ipcRenderer.invoke('open-external', url),
 
   screen: {
     sources: () => ipcRenderer.invoke('screen-sources'),
@@ -43,6 +47,7 @@ contextBridge.exposeInMainWorld('bridge', {
 
   browser: {
     available: () => ipcRenderer.invoke('browser-available'),
+    info: () => ipcRenderer.invoke('browser-info'),
     start: (url) => ipcRenderer.invoke('browser-start', url),
     stop: () => ipcRenderer.invoke('browser-stop'),
     nav: (n) => ipcRenderer.invoke('browser-nav', n),
