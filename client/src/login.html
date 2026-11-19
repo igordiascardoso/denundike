@@ -410,9 +410,9 @@ var view='login',emailRe=/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 function v(sel){return $(sel).value.trim()}
 function progress(){
   var p=0;
-  if(view==='login'){p=((emailRe.test(v('#l-id'))||/^@[a-z0-9_.]{2,}$/i.test(v('#l-id')))?.5:0)+($('#l-pw').value?.5:0)}
+  if(view==='login'){p=((emailRe.test(v('#l-id'))||/^@[\p{Script=Latin}\p{Nd}_.]{2,}$/u.test(v('#l-id')))?.5:0)+($('#l-pw').value?.5:0)}
   else if(view==='register'){
-    p=(emailRe.test(v('#r-em'))?1:0)+(/^[a-z0-9_.]{3,20}$/i.test(v('#r-lg').replace(/^@/,''))?1:0)+(v('#r-nm').length>=2?1:0)+($('#r-pw').value.length>=8?1:0);p/=4;
+    p=(emailRe.test(v('#r-em'))?1:0)+(loginOk(v('#r-lg'))?1:0)+(v('#r-nm').length>=2?1:0)+($('#r-pw').value.length>=8?1:0);p/=4;
   }
   else if(view==='recover'){
     p=(v('#p-lg').replace(/^@/,'').length>=3?.25:0)+(v('#p-cd').replace(/[^A-Za-z0-9]/g,'').length===16?.25:0)+($('#p-pw').value.length>=8?.25:0)+($('#p-pw').value.length>=8&&$('#p-pw').value===$('#p-pw2').value?.25:0);
@@ -443,6 +443,8 @@ document.addEventListener('click',function(e){
 });
 
 /* ---------- helpers de formulário ---------- */
+/* @login: letras latinas (com acento), números, _ e . — 3 a 20; precisa de ao menos uma letra ou número */
+function loginOk(x){x=String(x).trim().replace(/^@/,'').normalize('NFC');return /^[\p{Script=Latin}\p{Nd}_.]{3,20}$/u.test(x)&&/[\p{L}\p{Nd}]/u.test(x)}
 function fail(input,msg){var f=input.closest('.f');f.classList.remove('bad');void f.offsetWidth;f.classList.add('bad');$('.err',f).textContent=msg;return input}
 function clear(form){$$('.f.bad',form).forEach(function(f){f.classList.remove('bad')});$$('.code',form).forEach(function(c){c.classList.remove('bad')});var b=$('.banner',form);if(b)b.classList.remove('on')}
 function banner(form,msg,ok){var b=$('.banner',form);if(b){b.textContent=msg;b.classList.toggle('ok',!!ok);b.classList.add('on')}}
@@ -481,7 +483,7 @@ $('#register').addEventListener('submit',function(e){
   var bad=null;
   function chk(c,i,m){if(c){var x=fail(i,m);bad=bad||x}}
   chk(!emailRe.test(f.em.value.trim()),f.em,'Digite um e-mail válido.');
-  chk(!/^[a-z0-9_.]{3,20}$/i.test(f.lg.value.trim().replace(/^@/,'')),f.lg,'3 a 20 caracteres: letras, números, _ ou .');
+  chk(!loginOk(f.lg.value),f.lg,'3 a 20 caracteres: letras (acentos valem), números, _ ou . — sem espaços.');
   chk(f.nm.value.trim().length<2,f.nm,'Diga como podemos te chamar.');
   chk(f.pw.value.length<8,f.pw,'A senha precisa de ao menos 8 caracteres.');
   var iv=f.iv.value.trim();
@@ -490,7 +492,7 @@ $('#register').addEventListener('submit',function(e){
   if(bad){sig('err');bad.focus();return}
   inviteCode=iv;
   clear(f);busy(f,true);
-  var lg=f.lg.value.trim().replace(/^@/,'');
+  var lg=f.lg.value.trim().replace(/^@/,'').normalize('NFC');
   var em=f.em.value.trim();
   var pw=f.pw.value;
   var recCode='';
@@ -505,7 +507,8 @@ $('#register').addEventListener('submit',function(e){
   }).catch(function(err){
     busy(f,false);
     var msg=(err&&err.message)||'';
-    if(/already exists|conflict/i.test(msg))banner(f,'Esse @login ou e-mail já está em uso.');
+    if(/invalid login/i.test(msg))banner(f,'Esse @login não vale: use 3 a 20 letras (acentos valem), números, _ ou . — sem espaços.');
+    else if(/already exists|conflict/i.test(msg))banner(f,'Esse @login ou e-mail já está em uso.');
     else if(/invalid.*invite|expired|invite/i.test(msg))banner(f,'Convite inválido ou expirado.');
     else banner(f,'Falha ao criar conta: '+(msg||'erro desconhecido'));
     sig('err');

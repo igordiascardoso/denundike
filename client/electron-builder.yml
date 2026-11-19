@@ -5,7 +5,17 @@ publish:
   owner: igordiascardoso
   repo: denundike-releases
   releaseType: release
+files:
+  - "**/*"
+  - "!.omc{,/**}"
 win:
   target: nsis
+  icon: assets/icon.ico
+nsis:
+  installerIcon: assets/icon.ico
+  uninstallerIcon: assets/icon.ico
+  installerHeaderIcon: assets/icon.ico
 linux:
   target: AppImage
+  icon: assets/icon.png
+  category: Network

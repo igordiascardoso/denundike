@@ -638,6 +638,13 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
         <span class="av xl c1" id="settingsAv">?</span>
         <div style="flex:1"><b class="disp" style="font-size:18px" id="settingsName">—</b><small style="display:block;color:var(--muted)" id="settingsLogin">—</small></div>
       </div>
+      <form id="loginForm" autocomplete="off" style="display:grid;gap:10px;margin-top:18px">
+        <h3 style="font-size:15px">Trocar @login</h3>
+        <p style="color:var(--muted);margin:0">De 3 a 20 caracteres: letras (acentos valem, como em Brizão), números, _ e . — sem espaços. Dá para trocar uma vez a cada 24 horas. Seus amigos e grupos veem o novo @ na hora.</p>
+        <label class="l">Novo @login<input class="in" id="newLogin" maxlength="20" autocomplete="off" spellcheck="false" placeholder="@seunome"></label>
+        <small id="newLoginHint" role="status" aria-live="polite" style="min-height:18px;color:var(--muted)"></small>
+        <button class="btn pri" id="newLoginBtn" type="submit" disabled>Salvar novo @login</button>
+      </form>
     </div>
     <div class="spane" id="sp-inv" hidden>
       <h2>Meus convites</h2>
@@ -711,10 +718,18 @@ const ERR_TXT = {
   'member not found': 'Essa pessoa não está mais no grupo.',
   'invalid role': 'Papel inválido.',
   'channel not found': 'Esse canal não existe mais.',
+  'invalid login': 'Esse @login não vale: use 3 a 20 letras (acentos valem), números, _ ou . — sem espaços.',
+  'login taken': 'Esse @login já está em uso.',
+  'login unchanged': 'Esse já é o seu @login.',
 };
 function errMsg(e) {
   const m = (e && e.message) || '';
   if (/failed to fetch|networkerror|load failed/i.test(m)) return 'Sem conexão com o servidor.';
+  const cd = /^login change cooldown (\d+)/.exec(m);
+  if (cd) {
+    const mins = Math.ceil(+cd[1] / 60), h = Math.floor(mins / 60), mi = mins % 60;
+    return 'Você trocou de @login há pouco. Dá para trocar de novo em ' + (h ? h + ' h ' : '') + mi + ' min.';
+  }
   return ERR_TXT[m] || m || 'Algo deu errado. Tente de novo.';
 }
 const fail = e => toast(errMsg(e), true);
@@ -1067,6 +1082,7 @@ function _appendMsg(container, m) {
   const div = document.createElement('div');
   div.className = 'msg';
   if (m.id) div.dataset.mid = m.id;
+  if (m.user_id) div.dataset.uid = m.user_id;
   div.innerHTML =
     `<span class="av sm ${avColor(m.user_id)}">${esc(initials(login))}</span>` +
     `<div class="b"><div class="who"><b>${esc(login)}</b><time>${esc(time)}</time></div>` +
@@ -1108,6 +1124,9 @@ function connectWS() {
         break;
       case 'friend_update':
         refreshSocial();
+        break;
+      case 'user_renamed':
+        onUserRenamed(ev);
         break;
       case 'group_invite':
         toast('@' + ev.inviter + ' convidou você para "' + ev.group_name + '"');
@@ -1719,6 +1738,68 @@ $('#secNew').onclick = e => run(e.currentTarget, async () => {
   $('#secPw').value = '';
   showRecovery(r.recovery_code, 'Este é o seu novo código. O anterior deixou de valer.');
 });
+
+/* ── trocar @login ── */
+function loginOk(x) {
+  x = String(x).trim().replace(/^@/, '').normalize('NFC');
+  return /^[\p{Script=Latin}\p{Nd}_.]{3,20}$/u.test(x) && /[\p{L}\p{Nd}]/u.test(x);
+}
+let _lgTimer = 0, _lgSeq = 0;
+function setLgHint(msg, kind) {
+  const h = $('#newLoginHint'); h.textContent = msg;
+  h.style.color = kind === 'ok' ? 'var(--online, #6fd28a)' : kind === 'bad' ? 'var(--hot, #ff5c4d)' : 'var(--muted)';
+}
+$('#newLogin').addEventListener('input', () => {
+  const v = $('#newLogin').value.trim().replace(/^@/, '').normalize('NFC');
+  const btn = $('#newLoginBtn');
+  btn.disabled = true; clearTimeout(_lgTimer); const seq = ++_lgSeq;
+  if (!v) return setLgHint('');
+  if (v === USER.login) return setLgHint('Esse já é o seu @login.');
+  if (!loginOk(v)) return setLgHint('Use de 3 a 20 letras (acentos valem), números, _ ou . — sem espaços.', 'bad');
+  setLgHint('Verificando…');
+  _lgTimer = setTimeout(async () => {
+    try {
+      const r = await api('GET', '/api/me/login-available?login=' + encodeURIComponent(v));
+      if (seq !== _lgSeq) return;
+      if (r.available) { setLgHint('@' + v + ' está disponível.', 'ok'); btn.disabled = false; }
+      else setLgHint('@' + v + ' já está em uso (nomes iguais sem acento ou maiúsculas contam como o mesmo).', 'bad');
+    } catch (e) { if (seq === _lgSeq) setLgHint(errMsg(e), 'bad'); }
+  }, 350);
+});
+$('#loginForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const v = $('#newLogin').value.trim().replace(/^@/, '').normalize('NFC');
+  await run($('#newLoginBtn'), async () => {
+    const r = await api('PATCH', '/api/me/login', { login: v });
+    applyOwnLogin(r.user);
+    $('#newLogin').value = ''; setLgHint('');
+    toast('Pronto! Seu @login agora é @' + r.user.login);
+  });
+  $('#newLoginBtn').disabled = true;
+});
+function applyOwnLogin(u) {
+  Object.assign(USER, u);
+  try { localStorage.setItem('denundike_user', JSON.stringify(u)); localStorage.setItem('denundike_last_login', u.login); } catch (_) {}
+  renderMe();
+}
+/* alguém (ou eu em outro aparelho) trocou de @: atualiza a tela na hora */
+function onUserRenamed(ev) {
+  if (ev.user_id === USER.id) {
+    if (USER.login !== ev.login) applyOwnLogin({ ...USER, login: ev.login });
+  } else {
+    toast('@' + ev.old_login + ' agora é @' + ev.login);
+  }
+  $$('#msgs .msg[data-uid="' + ev.user_id + '"]').forEach(m => {
+    const b = m.querySelector('.who b'); if (b) b.textContent = ev.login;
+    const av = m.querySelector('.av'); if (av) setAvText(av, initials(ev.login));
+  });
+  voicePresence.forEach(list => list.forEach(u => { if (u.user_id === ev.user_id) u.login = ev.login; }));
+  renderVoicePresence();
+  try { const p = call.peers.get(ev.user_id); if (p) p.login = ev.login; } catch (_) {}
+  try { if (bshare && bshare.state && bshare.state.host_id === ev.user_id) bshare.state.host_login = ev.login; } catch (_) {}
+  refreshSocial();
+  if (activeGroup) { refreshRoles().then(() => { if (!$('#mem').hidden) loadMembers(); }).catch(() => {}); }
+}
 
 /* ── init ── */
 document.addEventListener('DOMContentLoaded', async () => {

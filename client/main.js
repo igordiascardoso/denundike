@@ -6,6 +6,7 @@ const { registerBrowserIpc } = require('./browserhost');
 
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 
+const APP_ICON = path.join(__dirname, 'assets', 'icon.png');
 let loginWin = null;
 let mainWin = null;
 let pendingUpdate = false;
@@ -18,6 +19,7 @@ function createMainWindow() {
     minHeight: 600,
     title: 'Denundike',
     frame: false,
+    icon: APP_ICON,
     backgroundColor: '#090C0D',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -62,6 +64,7 @@ function createLoginWindow() {
     minHeight: 600,
     title: 'Denundike · Entrar',
     frame: false,
+    icon: APP_ICON,
     backgroundColor: '#090C0D',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
