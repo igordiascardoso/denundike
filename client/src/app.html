@@ -355,7 +355,8 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
   <svg class="i sm" aria-hidden="true"><use href="#reload"/></svg>
   <span id="updateMsg">Nova versão disponível — baixando…</span>
   <span class="sp"></span>
-  <button class="btn sm" id="installUpdateBtn" hidden>Reiniciar para atualizar</button>
+  <button class="btn sm" id="installUpdateBtn" hidden>Reiniciar agora</button>
+  <button class="btn sm" id="updateLaterBtn" hidden>Depois</button>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <div class="ws-status" id="wsStatus" role="status"><span class="dot" style="width:8px;height:8px;border-radius:50%;flex:none"></span><span id="wsMsg">Reconectando...</span></div>
@@ -1624,17 +1625,26 @@ function rng(r) { r.style.setProperty('--v', r.value + '%'); }
 $$('input[type=range]').forEach(r => { rng(r); r.oninput = () => rng(r); });
 
 /* ── auto-update ── */
-if (window.bridge?.onUpdateAvailable) {
-  window.bridge.onUpdateAvailable(() => {
-    $('#updateBanner').classList.add('show');
-    $('#updateMsg').textContent = 'Nova versão disponível — baixando…';
-    $('#installUpdateBtn').hidden = true;
-  });
-  window.bridge.onUpdateDownloaded(() => {
-    $('#updateMsg').textContent = 'Atualização pronta!';
-    $('#installUpdateBtn').hidden = false;
+/* O processo principal decide quando instalar (contagem, chamada, "Depois"); aqui só se mostra o estado. */
+if (window.bridge?.onUpdateStatus) {
+  window.bridge.onUpdateStatus((s) => {
+    const b = $('#updateBanner'), msg = $('#updateMsg'), now = $('#installUpdateBtn'), later = $('#updateLaterBtn');
+    const v = s.version ? ' (v' + s.version + ')' : '';
+    now.hidden = true; later.hidden = true;
+    b.classList.add('show');
+    if (s.state === 'downloading') {
+      msg.textContent = 'Nova versão' + v + ' disponível — baixando' + (s.pct ? ' ' + s.pct + '%' : '…');
+    } else if (s.state === 'countdown') {
+      msg.textContent = 'Atualização pronta' + v + '. Reiniciando em ' + s.seconds + 's…';
+      now.hidden = false; later.hidden = false;
+    } else if (s.state === 'waiting-call') {
+      msg.textContent = 'Atualização baixada' + v + ', será instalada quando a chamada terminar.';
+    } else {
+      b.classList.remove('show'); // adiada: some e volta sozinha quando o prazo acabar
+    }
   });
   $('#installUpdateBtn').onclick = () => window.bridge.installUpdate();
+  $('#updateLaterBtn').onclick = () => window.bridge.deferUpdate();
 }
 
 /* ── perfil (próprio e de outros) ── */

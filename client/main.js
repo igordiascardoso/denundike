@@ -16,9 +16,23 @@ let loginWin = null;
 let mainWin = null;
 let tray = null;
 let pendingUpdate = false;
-let pendingUpdateDownloaded = false;
 let updateReady = false;
 let manualCheck = false;
+// Atualização automática: o main decide quando instalar; a janela só mostra o banner.
+let updateVersion = '';
+let updatePhase = 'idle'; // idle | checking | uptodate | downloading | ready
+let updatePct = 0;
+let updateTimer = null; // fim do adiamento ou espera da instalação em segundo plano
+let countdownTimer = null; // contagem regressiva visível
+let deferUntil = 0;
+let installing = false;
+let uptodateTimer = null;
+const COUNTDOWN_S = 10;
+const HIDDEN_DELAY_MS = 3000;
+const DEFER_MS = TEST && Number(process.env.DENUNDIKE_DEFER_MS) > 0 ? Number(process.env.DENUNDIKE_DEFER_MS) : 30 * 60 * 1000;
+const CHECK_EVERY_MS = 3600 * 1000;
+let testStubInstall = false;
+const installCalls = []; // só para o teste ler
 let isQuitting = false;
 let startHidden = false;
 let inTray = false; // janela escondida de propósito (X ou início em segundo plano)
@@ -70,10 +84,8 @@ function createMainWindow() {
       mainWin.webContents.send('update-available');
       pendingUpdate = false;
     }
-    if (pendingUpdateDownloaded) {
-      mainWin.webContents.send('update-downloaded');
-      pendingUpdateDownloaded = false;
-    }
+    if (updateReady) scheduleInstall();
+    else if (updatePhase === 'downloading') sendUpdateStatus({ state: 'downloading', pct: updatePct });
   });
 
   // Saiu da conta (ou a sessão caiu): não há mais chamada, e quem está escondido precisa ver o login.
@@ -187,12 +199,70 @@ function setOpenAtLogin(on) {
   }
 }
 
+function clearUpdateTimers() {
+  clearTimeout(updateTimer);
+  clearInterval(countdownTimer);
+  updateTimer = null;
+  countdownTimer = null;
+}
+
+function sendUpdateStatus(s) {
+  if (alive(mainWin) && isAppPage(mainWin)) mainWin.webContents.send('update-status', { version: updateVersion, ...s });
+}
+
 function installUpdate() {
+  if (installing) return;
+  installing = true;
+  clearUpdateTimers();
   // Com a janela escondida, o app volta escondido depois de atualizar.
-  const background = inTray || startHidden;
+  const background = inTray || startHidden || (alive(mainWin) && isAppPage(mainWin) && !mainWin.isVisible());
   if (background) { settings.startHiddenOnce = true; saveSettings(); }
   isQuitting = true;
+  if (testStubInstall) { installCalls.push({ at: Date.now(), background: !!background }); installing = false; isQuitting = false; return; }
   autoUpdater.quitAndInstall(true, true);
+}
+
+// Última conferência antes de reiniciar: chamada que começou no meio da contagem cancela a instalação.
+function runInstall() {
+  clearUpdateTimers();
+  if (callState.inCall) { scheduleInstall(); return; }
+  installUpdate();
+}
+
+/* Decide quando instalar a atualização já baixada, sem pedir clique:
+   em chamada espera terminar; adiada espera o prazo; escondido instala direto; visível faz contagem. */
+function scheduleInstall() {
+  if (!updateReady || installing) return;
+  clearUpdateTimers();
+  if (callState.inCall) { sendUpdateStatus({ state: 'waiting-call' }); return; }
+  const wait = deferUntil - Date.now();
+  if (wait > 0) {
+    sendUpdateStatus({ state: 'deferred' });
+    updateTimer = setTimeout(scheduleInstall, wait + 50);
+    return;
+  }
+  if (!isAppPage(mainWin)) { // tela de login ou sem janela principal: não há nada a perder
+    sendToWindows('update-installing');
+    updateTimer = setTimeout(runInstall, 2000);
+    return;
+  }
+  if (!mainWin.isVisible()) { // em segundo plano: instala direto, só avisa pelo Windows
+    notify(`Denundike atualizado — reiniciando para a versão ${updateVersion || 'nova'}`, 'O app volta em segundo plano em instantes.', { noOpen: true });
+    updateTimer = setTimeout(runInstall, HIDDEN_DELAY_MS);
+    return;
+  }
+  let left = COUNTDOWN_S;
+  sendUpdateStatus({ state: 'countdown', seconds: left });
+  countdownTimer = setInterval(() => {
+    left -= 1;
+    if (left <= 0) runInstall();
+    else sendUpdateStatus({ state: 'countdown', seconds: left });
+  }, 1000);
+}
+
+function checkForUpdate() {
+  if (!app.isPackaged || updateReady || installing) return Promise.resolve();
+  return autoUpdater.checkForUpdates().catch(() => { /* sem rede: a próxima verificação tenta de novo */ });
 }
 
 function checkUpdatesManual() {
@@ -205,6 +275,20 @@ function checkUpdatesManual() {
   autoUpdater.checkForUpdates().catch(() => {
     if (manualCheck) { manualCheck = false; notify('Não foi possível verificar atualizações', 'Tente de novo em instantes.', { noOpen: true }); }
   });
+}
+
+function updateStatusLabel() {
+  if (updatePhase === 'checking') return 'Procurando atualizações…';
+  if (updatePhase === 'uptodate') return 'Você está na versão mais recente';
+  if (updatePhase === 'downloading') return `Baixando atualização ${updatePct}%`;
+  return '';
+}
+
+function setUpdatePhase(phase) {
+  updatePhase = phase;
+  clearTimeout(uptodateTimer);
+  if (phase === 'uptodate') uptodateTimer = setTimeout(() => { if (updatePhase === 'uptodate') setUpdatePhase('idle'); }, 6000);
+  refreshTray();
 }
 
 function quitForReal() {
@@ -227,9 +311,10 @@ function trayTemplate() {
     { label: c.deafened ? 'Desensurdecer' : 'Ensurdecer', enabled: c.inCall, click: () => toRenderer('toggle-deafen') },
     { label: 'Sair da chamada', enabled: c.inCall, click: () => toRenderer('leave-call') },
     { type: 'separator' },
+    ...(updateStatusLabel() ? [{ label: updateStatusLabel(), enabled: false }] : []),
     updateReady
       ? { label: 'Reiniciar para atualizar', click: installUpdate }
-      : { label: 'Verificar atualizações', click: checkUpdatesManual },
+      : { label: 'Verificar atualizações', enabled: updatePhase !== 'checking' && updatePhase !== 'downloading', click: checkUpdatesManual },
     {
       label: process.platform === 'win32' ? 'Iniciar com o Windows' : 'Iniciar com o sistema',
       type: 'checkbox',
@@ -251,8 +336,11 @@ function refreshTray() {
 function setCallState(s) {
   const next = { inCall: !!s.inCall, muted: !!s.muted, deafened: !!s.deafened };
   if (next.inCall === callState.inCall && next.muted === callState.muted && next.deafened === callState.deafened) return;
+  const callChanged = next.inCall !== callState.inCall;
   callState = next;
   refreshTray();
+  // Entrou na chamada: cancela a contagem; saiu: retoma a instalação pendente.
+  if (callChanged && updateReady) scheduleInstall();
 }
 
 function createTray() {
@@ -316,9 +404,12 @@ function boot() {
     registerBrowserIpc();
     createTray();
     createLoginWindow();
-    autoUpdater.checkForUpdatesAndNotify();
-    // Como o app fica aberto dias em segundo plano, procura atualização de tempos em tempos.
-    if (app.isPackaged) setInterval(() => autoUpdater.checkForUpdates().catch(() => {}), 4 * 3600 * 1000);
+    // Sem checkForUpdatesAndNotify: o aviso nativo dele sai em inglês. Quem avisa somos nós, em português.
+    autoUpdater.autoDownload = true;
+    autoUpdater.autoInstallOnAppQuit = true;
+    checkForUpdate();
+    // O app fica aberto dias em segundo plano: procura atualização de hora em hora.
+    setInterval(checkForUpdate, CHECK_EVERY_MS);
 
     if (TEST) {
       // Só para os testes automáticos: expõe os handlers reais da bandeja no processo principal.
@@ -343,7 +434,15 @@ function boot() {
           startHidden,
           inTray,
         }),
-        fakeUpdateDownloaded: () => autoUpdater.emit('update-downloaded'),
+        fakeUpdateDownloaded: (v) => autoUpdater.emit('update-downloaded', { version: v || '9.9.9' }),
+        stubInstall: (on) => { testStubInstall = !!on; },
+        resetUpdate: () => { clearUpdateTimers(); updateReady = false; installing = false; deferUntil = 0; updatePhase = 'idle'; updatePct = 0; installCalls.length = 0; refreshTray(); },
+        installCalls: () => installCalls.slice(),
+        setCall: (s) => setCallState(s),
+        updateState: () => ({ updateReady, updatePhase, updatePct, installing, deferUntil, timers: !!updateTimer || !!countdownTimer, label: updateStatusLabel() }),
+        fakeEvent: (name, arg) => autoUpdater.emit(name, arg),
+        hide: () => { if (alive(mainWin)) { inTray = true; mainWin.hide(); } },
+        show: () => showWindow(),
         // O que o electron-updater faz ao instalar: app.quit() puro, sem avisar a bandeja.
         fakeInstall: () => { app.quit(); },
       };
@@ -364,12 +463,28 @@ function sendToWindows(channel, ...args) {
   }
 }
 
-autoUpdater.on('update-available', () => {
+// Nada do que o electron-updater diz chega ao usuário: as mensagens dele são em inglês.
+// Tudo que aparece (banner, bandeja, avisos do Windows) é escrito aqui, em português.
+autoUpdater.on('checking-for-update', () => {
+  if (updateReady) return;
+  setUpdatePhase('checking');
+});
+
+autoUpdater.on('update-available', (info) => {
+  updateVersion = (info && info.version) || updateVersion;
+  updatePct = 0;
   if (!mainWin) pendingUpdate = true;
   sendToWindows('update-available');
+  sendUpdateStatus({ state: 'downloading', pct: 0 });
+  setUpdatePhase('downloading');
+  if (manualCheck) {
+    manualCheck = false;
+    notify('Nova versão encontrada', `Baixando a versão ${updateVersion || 'nova'}…`, { noOpen: true });
+  }
 });
 
 autoUpdater.on('update-not-available', () => {
+  setUpdatePhase('uptodate');
   if (manualCheck) {
     manualCheck = false;
     notify('Denundike está atualizado', 'Você já tem a versão mais recente.', { noOpen: true });
@@ -377,30 +492,26 @@ autoUpdater.on('update-not-available', () => {
 });
 
 autoUpdater.on('error', () => {
+  if (!updateReady) setUpdatePhase('idle');
   if (manualCheck) {
     manualCheck = false;
     notify('Não foi possível verificar atualizações', 'Tente de novo em instantes.', { noOpen: true });
   }
+  // Sem aviso para o usuário em verificação automática: a próxima rodada (a cada hora) tenta de novo.
 });
 
 autoUpdater.on('download-progress', (p) => {
-  sendToWindows('update-progress', Math.round(p.percent));
+  const pct = Math.round(p.percent);
+  sendToWindows('update-progress', pct);
+  sendUpdateStatus({ state: 'downloading', pct });
+  if (pct !== updatePct) { updatePct = pct; refreshTray(); }
 });
 
-autoUpdater.on('update-downloaded', () => {
+autoUpdater.on('update-downloaded', (info) => {
+  updateVersion = (info && info.version) || updateVersion;
   updateReady = true;
-  refreshTray();
-  if (alive(mainWin)) {
-    mainWin.webContents.send('update-downloaded');
-    // Em segundo plano ninguém vai ver o aviso de reiniciar: instala sozinho, se não estiver em chamada.
-    if ((inTray || startHidden) && !callState.inCall) {
-      notify('Atualizando o Denundike', 'O app reinicia em segundo plano.', { noOpen: true });
-      setTimeout(installUpdate, 3000);
-    }
-  } else {
-    sendToWindows('update-installing');
-    setTimeout(installUpdate, 2000);
-  }
+  setUpdatePhase('ready');
+  scheduleInstall();
 });
 
 const winOf = (e) => BrowserWindow.fromWebContents(e.sender);
@@ -424,9 +535,17 @@ ipcMain.handle('open-external', (_e, url) => {
   return true;
 });
 
-ipcMain.on('install-update', () => {
-  isQuitting = true;
-  autoUpdater.quitAndInstall();
+// "Reiniciar agora" do banner (e do menu da bandeja): instala já, mesmo em chamada, porque o usuário pediu.
+ipcMain.on('install-update', (e) => {
+  if (!updateReady || BrowserWindow.fromWebContents(e.sender) !== mainWin) return;
+  installUpdate();
+});
+
+// "Depois": adia e volta a instalar sozinho quando o prazo acabar.
+ipcMain.on('update-defer', (e) => {
+  if (!updateReady || BrowserWindow.fromWebContents(e.sender) !== mainWin) return;
+  deferUntil = Date.now() + DEFER_MS;
+  scheduleInstall();
 });
 
 // Qualquer encerramento (Sair, atualização, desligar o PC) libera o X e some com o ícone da bandeja.
