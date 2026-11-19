@@ -6,9 +6,9 @@ let mainWin = null;
 
 function createMainWindow() {
   mainWin = new BrowserWindow({
-    width: 1200,
-    height: 750,
-    minWidth: 400,
+    width: 1280,
+    height: 800,
+    minWidth: 1100,
     minHeight: 600,
     title: 'Denundike',
     webPreferences: {
@@ -18,7 +18,7 @@ function createMainWindow() {
     },
   });
 
-  mainWin.loadFile(path.join(__dirname, 'app.html'));
+  mainWin.loadFile(path.join(__dirname, 'src', 'app.html'));
 
   mainWin.on('closed', () => {
     mainWin = null;

@@ -1,6 +1,8 @@
 const { contextBridge, ipcRenderer } = require('electron');
+const DenundikeWS = require('./src/js/ws.js');
 
 const BASE_URL = process.env.DENUNDIKE_SERVER || 'http://localhost:8080';
+const wsClient = new DenundikeWS();
 
 contextBridge.exposeInMainWorld('bridge', {
   api: async function (method, path, body) {
@@ -20,7 +22,18 @@ contextBridge.exposeInMainWorld('bridge', {
     if (res.status === 204) return null;
     return res.json();
   },
+
   openMain: function () {
     ipcRenderer.send('open-main');
+  },
+
+  serverUrl: BASE_URL,
+
+  ws: {
+    connect: (token) => wsClient.connect(BASE_URL, token),
+    send: (obj) => wsClient.send(obj),
+    onMessage: (cb) => wsClient.onMessage(cb),
+    onReconnect: (cb) => wsClient.onReconnect(cb),
+    disconnect: () => wsClient.disconnect(),
   },
 });
