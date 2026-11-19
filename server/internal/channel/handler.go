@@ -8,10 +8,11 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jemunje/denundike/internal/auth"
 	"github.com/jemunje/denundike/internal/group"
+	"github.com/jemunje/denundike/internal/notify"
 )
 
 // HandleCreate handles POST /api/groups/:id/channels.
-func HandleCreate(db *sql.DB) http.HandlerFunc {
+func HandleCreate(db *sql.DB, n notify.Notifier) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		user := auth.UserFromContext(r.Context())
 		groupID := chi.URLParam(r, "id")
@@ -46,6 +47,7 @@ func HandleCreate(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
+		notifyGroup(db, n, groupID, map[string]any{"type": "channel_created", "group_id": groupID, "channel": c})
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
 		json.NewEncoder(w).Encode(c) //nolint:errcheck

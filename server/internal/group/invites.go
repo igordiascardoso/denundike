@@ -24,6 +24,7 @@ type Member struct {
 	ID         string     `json:"id"`
 	Login      string     `json:"login"`
 	IsOwner    bool       `json:"is_owner"`
+	Role       string     `json:"role"`
 	LastSeenAt *time.Time `json:"last_seen_at,omitempty"`
 }
 
@@ -57,7 +58,7 @@ func MemberIDs(db *sql.DB, groupID string) ([]string, error) {
 // ListMembers returns the members of groupID with their logins.
 func ListMembers(db *sql.DB, groupID string) ([]Member, error) {
 	rows, err := db.Query(`
-		SELECT u.id, u.login, (g.owner_id = u.id), u.last_seen_at
+		SELECT u.id, u.login, (g.owner_id = u.id), gm.role, u.last_seen_at
 		FROM group_members gm
 		JOIN users u ON u.id = gm.user_id
 		JOIN groups g ON g.id = gm.group_id
@@ -72,7 +73,7 @@ func ListMembers(db *sql.DB, groupID string) ([]Member, error) {
 	for rows.Next() {
 		var m Member
 		var seen sql.NullTime
-		if err := rows.Scan(&m.ID, &m.Login, &m.IsOwner, &seen); err != nil {
+		if err := rows.Scan(&m.ID, &m.Login, &m.IsOwner, &m.Role, &seen); err != nil {
 			return nil, err
 		}
 		if seen.Valid {

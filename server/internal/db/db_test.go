@@ -68,3 +68,48 @@ func TestDataSurvivesReopen(t *testing.T) {
 		t.Fatalf("convite sumiu após reabrir o banco")
 	}
 }
+
+// A pre-roles database (group_members without role) keeps its rows: the group creator becomes owner, others stay members.
+func TestMigrationBackfillsGroupRoles(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "roles.db")
+	old, err := sql.Open("sqlite", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, q := range []string{
+		`CREATE TABLE users (id TEXT PRIMARY KEY, login TEXT UNIQUE NOT NULL, email TEXT UNIQUE NOT NULL,
+			password_hash TEXT NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)`,
+		`CREATE TABLE groups (id TEXT PRIMARY KEY, name TEXT NOT NULL, owner_id TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)`,
+		`CREATE TABLE group_members (group_id TEXT, user_id TEXT, PRIMARY KEY(group_id, user_id))`,
+		`INSERT INTO users (id, login, email, password_hash) VALUES ('u1','dono','d@x.com','h'), ('u2','membro','m@x.com','h')`,
+		`INSERT INTO groups (id, name, owner_id) VALUES ('g1','Antigo','u1')`,
+		`INSERT INTO group_members (group_id, user_id) VALUES ('g1','u1'), ('g1','u2')`,
+	} {
+		if _, err := old.Exec(q); err != nil {
+			t.Fatal(err)
+		}
+	}
+	old.Close()
+
+	for i := 0; i < 2; i++ {
+		database, err := db.Open(path)
+		if err != nil {
+			t.Fatalf("open #%d: %v", i, err)
+		}
+		roles := map[string]string{}
+		rows, err := database.Query(`SELECT user_id, role FROM group_members WHERE group_id = 'g1'`)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for rows.Next() {
+			var u, r string
+			rows.Scan(&u, &r) //nolint:errcheck
+			roles[u] = r
+		}
+		rows.Close()
+		if roles["u1"] != "owner" || roles["u2"] != "member" || len(roles) != 2 {
+			t.Fatalf("roles after open #%d: %v", i, roles)
+		}
+		database.Close()
+	}
+}

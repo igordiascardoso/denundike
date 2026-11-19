@@ -26,7 +26,7 @@ func Create(db *sql.DB, ownerID, name string) (*Group, error) {
 	}
 
 	if _, err = tx.Exec(
-		`INSERT INTO group_members (group_id, user_id) VALUES (?, ?)`,
+		`INSERT INTO group_members (group_id, user_id, role) VALUES (?, ?, 'owner')`,
 		id, ownerID,
 	); err != nil {
 		return nil, err
@@ -50,13 +50,13 @@ func Create(db *sql.DB, ownerID, name string) (*Group, error) {
 		return nil, err
 	}
 
-	return &Group{ID: id, Name: name, OwnerID: ownerID, CreatedAt: now}, nil
+	return &Group{ID: id, Name: name, OwnerID: ownerID, Role: RoleOwner, CreatedAt: now}, nil
 }
 
 // ListForUser returns all groups the given user is a member of.
 func ListForUser(db *sql.DB, userID string) ([]Group, error) {
 	rows, err := db.Query(`
-		SELECT g.id, g.name, g.owner_id, g.created_at
+		SELECT g.id, g.name, g.owner_id, gm.role, g.created_at
 		FROM groups g
 		JOIN group_members gm ON gm.group_id = g.id
 		WHERE gm.user_id = ?
@@ -70,7 +70,7 @@ func ListForUser(db *sql.DB, userID string) ([]Group, error) {
 	var groups []Group
 	for rows.Next() {
 		var g Group
-		if err := rows.Scan(&g.ID, &g.Name, &g.OwnerID, &g.CreatedAt); err != nil {
+		if err := rows.Scan(&g.ID, &g.Name, &g.OwnerID, &g.Role, &g.CreatedAt); err != nil {
 			return nil, err
 		}
 		groups = append(groups, g)

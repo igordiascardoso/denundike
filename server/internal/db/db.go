@@ -113,10 +113,19 @@ func migrate(database *sql.DB) error {
 		{"users", "invited_by", "TEXT"},
 		{"users", "points", "INTEGER NOT NULL DEFAULT 0"},
 		{"users", "first_msg_awarded", "INTEGER NOT NULL DEFAULT 0"},
+		{"group_members", "role", "TEXT NOT NULL DEFAULT 'member'"},
 	} {
 		if err := addColumn(database, c[0], c[1], c[2]); err != nil {
 			return err
 		}
+	}
+
+	// The creator of every group is its owner; idempotent backfill for groups that predate roles.
+	if _, err := database.Exec(`
+		UPDATE group_members SET role = 'owner'
+		WHERE role = 'member'
+		  AND user_id = (SELECT owner_id FROM groups WHERE groups.id = group_members.group_id)`); err != nil {
+		return err
 	}
 
 	// Every group gets one voice room; backfills groups created before voice existed.
