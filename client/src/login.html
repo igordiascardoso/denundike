@@ -140,6 +140,7 @@ h1{font-size:26px;font-weight:800;letter-spacing:-.02em;margin-bottom:6px}
       <div class="f"><label for="r-lg">@login</label><div class="in"><input id="r-lg" name="lg" autocomplete="off" spellcheck="false" placeholder="@seunome" maxlength="21"></div><div class="err" role="alert"></div></div>
       <div class="f"><label for="r-nm">Nome</label><div class="in"><input id="r-nm" name="nm" autocomplete="name" maxlength="40" placeholder="Como o grupo te chama"></div><div class="err" role="alert"></div></div>
       <div class="f"><label for="r-pw">Senha</label><div class="in"><input id="r-pw" name="pw" type="password" autocomplete="new-password" placeholder="Mínimo de 8 caracteres"><button type="button" class="eye" aria-label="Mostrar senha">ver</button></div><div class="meter" aria-hidden="true"><i></i><i></i><i></i><i></i></div><div class="err" role="alert"></div></div>
+      <div class="f"><label for="r-iv">Convite</label><div class="in"><input id="r-iv" name="iv" autocomplete="off" spellcheck="false" placeholder="Cole o código ou link do convite"></div><div class="err" role="alert"></div></div>
       <button class="btn"><span class="t">Criar conta</span><span class="ld"><i></i><i></i><i></i></span></button>
       <p class="hint" id="register-hint">convite necessário para criar conta</p>
     </form>
@@ -475,8 +476,11 @@ $('#register').addEventListener('submit',function(e){
   chk(!/^[a-z0-9_.]{3,20}$/i.test(f.lg.value.trim().replace(/^@/,'')),f.lg,'3 a 20 caracteres: letras, números, _ ou .');
   chk(f.nm.value.trim().length<2,f.nm,'Diga como podemos te chamar.');
   chk(f.pw.value.length<8,f.pw,'A senha precisa de ao menos 8 caracteres.');
+  var iv=f.iv.value.trim();
+  var m=iv.match(/[?&]invite=([^&#\s]+)/);if(m)iv=m[1];else iv=iv.replace(/[\/\s]+$/,'').split('/').pop();
+  chk(!iv,f.iv,'Cole o código ou link do convite.');
   if(bad){sig('err');bad.focus();return}
-  if(!inviteCode){banner(f,'Link de convite necessário para criar conta.');sig('err');return}
+  inviteCode=iv;
   clear(f);busy(f,true);
   var lg=f.lg.value.trim().replace(/^@/,'');
   var em=f.em.value.trim();
@@ -555,6 +559,7 @@ if(inviteCode){
     b.classList.add('ok','on');
     var hint=$('#register-hint');
     if(hint)hint.textContent='convite de @'+data.created_by_login+' · código válido';
+    var ivf=$('#r-iv');if(ivf)ivf.value=inviteCode;
     // mudar para aba de registro automaticamente
     go('register');
   }).catch(function(){
