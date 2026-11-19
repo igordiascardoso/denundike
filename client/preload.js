@@ -1,7 +1,7 @@
 const { contextBridge, ipcRenderer } = require('electron');
 const DenundikeWS = require('./src/js/ws.js');
 
-const BASE_URL = process.env.DENUNDIKE_SERVER || 'http://localhost:8080';
+const BASE_URL = process.env.DENUNDIKE_SERVER || 'https://denundike.estudiofachada.com.br';
 const wsClient = new DenundikeWS();
 
 contextBridge.exposeInMainWorld('bridge', {
