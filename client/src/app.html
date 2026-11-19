@@ -41,8 +41,9 @@ h1,h2,h3,.disp{font-family:var(--display);letter-spacing:-.02em}
 .titlebar .wc{margin-left:auto;display:flex}
 .titlebar .wc button{width:46px;height:38px;display:grid;place-items:center;color:var(--muted)}
 .titlebar .wc button:hover{background:var(--bg3);color:var(--text)}.titlebar .wc button:last-child:hover{background:var(--hot);color:#fff}
-.shell{display:grid;grid-template-columns:72px 256px minmax(0,1fr) 336px;min-height:0;background:var(--bg0)}
-.rail{display:flex;flex-direction:column;align-items:center;gap:10px;padding:8px 0;overflow:auto;scrollbar-width:none}
+.shell{display:grid;grid-template-columns:62px 256px minmax(0,1fr) 336px;column-gap:10px;padding:0 10px 10px 0;min-height:0;background:var(--bg0)}
+.card{background:var(--bg1);border:1px solid var(--line2);border-radius:16px;overflow:hidden}
+.rail{display:flex;flex-direction:column;align-items:center;gap:10px;padding:8px 0 8px 10px;overflow:auto;scrollbar-width:none}
 .rail .sep{width:30px;height:2px;border-radius:2px;background:var(--line2);margin:2px 0}
 .gbtn{position:relative;width:48px;height:48px;border-radius:16px;background:var(--bg3);display:grid;place-items:center;font:700 15px var(--display);color:var(--text);transition:border-radius .2s,background .2s,transform .2s}
 .gbtn:hover{border-radius:12px;background:var(--bg4);transform:translateY(-1px)}
@@ -53,7 +54,8 @@ h1,h2,h3,.disp{font-family:var(--display);letter-spacing:-.02em}
 .gbtn.add:hover{border-color:var(--accent);background:var(--accent-soft)}
 .gbtn.home{background:transparent}.gbtn.home.on{background:var(--bg3)}
 .gbtn .badge{position:absolute;right:-4px;bottom:-4px;min-width:18px;height:18px;border-radius:9px;background:var(--hot);color:#fff;font:700 11px/18px var(--body);text-align:center;border:3px solid var(--bg0);box-sizing:content-box;padding:0 3px}
-.side{display:flex;flex-direction:column;background:var(--bg1);border-radius:var(--r-l) 0 0 0;min-height:0;border:1px solid var(--line);border-right:0;border-bottom:0}
+.side{display:flex;flex-direction:column;gap:10px;min-height:0;min-width:0}
+.sidecard{display:flex;flex-direction:column;flex:1;min-height:0}
 .gh{display:flex;align-items:center;justify-content:space-between;padding:0 10px 0 18px;height:56px;border-bottom:1px solid var(--line)}
 .gh h2{font-size:17px;font-weight:700}
 .gh .acts{display:flex;gap:2px}
@@ -65,12 +67,12 @@ h1,h2,h3,.disp{font-family:var(--display);letter-spacing:-.02em}
 .ch{display:flex;align-items:center;gap:9px;width:100%;padding:7px 10px;border-radius:var(--r-s);color:var(--muted);text-align:left;transition:background .15s,color .15s,padding .15s}
 .ch:hover{background:var(--bg2);color:var(--text);padding-left:13px}
 .ch.on{background:var(--accent-soft);color:var(--accent);font-weight:600}
-.me{display:flex;align-items:center;gap:2px;padding:10px;background:var(--bg0);border-top:1px solid var(--line)}
+.me{display:flex;align-items:center;gap:2px;padding:10px;background:var(--bg1);border:1px solid var(--line2);border-radius:16px;flex:none}
 .meb{display:flex;align-items:center;gap:10px;flex:1;min-width:0;padding:5px 6px;border-radius:var(--r-s);text-align:left}
 .meb:hover{background:var(--bg3)}
 .meb .t{min-width:0;line-height:1.25}.meb b{display:block;font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .meb small{display:block;color:var(--muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.me .av .st{border-color:var(--bg0)}
+.me .av .st{border-color:var(--bg1)}
 .pop{position:fixed;z-index:60;background:var(--bg2);border:1px solid var(--line2);border-radius:var(--r-m);box-shadow:var(--sh);padding:6px;min-width:260px;animation:pin .16s ease-out}
 @keyframes pin{from{opacity:0;transform:translateY(6px) scale(.98)}}
 .pop .head{display:flex;gap:12px;align-items:center;padding:10px}
@@ -80,8 +82,8 @@ h1,h2,h3,.disp{font-family:var(--display);letter-spacing:-.02em}
 .mi:hover{background:var(--bg4)}.mi.danger{color:var(--hot)}.mi .i{color:var(--muted)}.mi.danger .i{color:var(--hot)}
 .mi .ck{margin-left:auto;color:var(--accent);opacity:0}.mi[aria-checked=true] .ck{opacity:1}
 .dot{width:10px;height:10px;border-radius:50%;flex:none}
-.center{display:flex;flex-direction:column;min-width:0;min-height:0;background:var(--bg1);border-top:1px solid var(--line)}
-.browser{display:flex;flex-direction:column;flex:1;min-height:0}
+.center{display:flex;flex-direction:column;gap:10px;min-width:0;min-height:0}
+.browser{display:flex;flex-direction:column;flex:1;min-height:0;background:var(--bg1);border:1px solid var(--line2);border-radius:16px;overflow:hidden}
 .empty{display:none;place-content:center;gap:18px;text-align:center;flex:1;padding:30px;overflow:hidden}
 .browser.m-empty .empty{display:grid}
 .empty .ring{width:132px;height:132px;margin:0 auto;border-radius:34px;background:var(--bg2);border:1px solid var(--line2);display:grid;place-items:center;position:relative;color:var(--accent)}
@@ -93,8 +95,8 @@ h1,h2,h3,.disp{font-family:var(--display);letter-spacing:-.02em}
 .btn.pri{background:var(--accent);color:var(--accent-ink);border-color:transparent}
 .btn.pri:hover{background:#D6FA7E;box-shadow:0 8px 24px rgba(200,245,96,.25)}
 .btn.sm{height:32px;padding:0 14px;font-size:13px}
-.right{display:flex;flex-direction:column;min-width:0;min-height:0;background:var(--bg1);border-top:1px solid var(--line);border-left:1px solid var(--line)}
-.chat{display:flex;flex-direction:column;flex:1;min-height:0;border-top:1px solid var(--line);background:var(--bg1)}
+.right{display:flex;flex-direction:column;min-width:0;min-height:0}
+.chat{display:flex;flex-direction:column;flex:1;min-height:0;background:var(--bg1);border:1px solid var(--line2);border-radius:16px;overflow:hidden}
 .chh{display:flex;align-items:center;gap:8px;padding:0 10px 0 16px;height:48px;border-bottom:1px solid var(--line);font:700 15px var(--display)}
 .chh .sp2{flex:1}.chh>.i{color:var(--dim)}
 .msgs{flex:1;overflow:auto;padding:16px;display:flex;flex-direction:column;gap:14px;scrollbar-width:thin;scrollbar-color:var(--bg4) transparent}
@@ -117,7 +119,7 @@ h1,h2,h3,.disp{font-family:var(--display);letter-spacing:-.02em}
 .mrow .t{min-width:0;flex:1;line-height:1.25}.mrow b{font-weight:600;display:block;font-size:13px}.mrow small{color:var(--muted);font-size:12px}
 .chip{display:inline-flex;align-items:center;gap:4px;font:600 10px var(--body);letter-spacing:.04em;text-transform:uppercase;padding:2px 7px;border-radius:9px;background:var(--accent-soft);color:var(--accent)}
 .chip.neu{background:var(--bg4);color:var(--muted)}
-.friends{display:none;grid-column:3/5;flex-direction:column;min-width:0;min-height:0;background:var(--bg1);border-top:1px solid var(--line)}
+.friends{display:none;grid-column:3/5;flex-direction:column;min-width:0;min-height:0;background:var(--bg1);border:1px solid var(--line2);border-radius:16px;overflow:hidden}
 .app.vf .center,.app.vf .right{display:none}.app.vf .friends{display:flex}
 .fh{display:flex;align-items:center;gap:6px;padding:0 20px;height:56px;border-bottom:1px solid var(--line)}
 .fh h2{font-size:17px;display:flex;gap:8px;align-items:center;margin-right:16px}
@@ -203,13 +205,13 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 .bc svg{width:16px;height:16px;display:block}
 .bc span{position:absolute;left:14px;top:12px;background:var(--c);color:#000;font:600 11px var(--body);padding:2px 6px;border-radius:8px;white-space:nowrap}
 .bbanner{display:flex;justify-content:center;padding:8px;background:var(--bg1);border-bottom:1px solid var(--line)}
-.qpop{position:absolute;right:16px;bottom:78px;z-index:30;width:268px;background:var(--bg2);border:1px solid var(--line2);border-radius:var(--r-m);padding:14px;box-shadow:0 16px 40px rgba(0,0,0,.5)}
+.qpop{position:absolute;right:16px;bottom:94px;z-index:30;width:268px;background:var(--bg2);border:1px solid var(--line2);border-radius:var(--r-m);padding:14px;box-shadow:0 16px 40px rgba(0,0,0,.5)}
 .qpop[hidden]{display:none}
 .qpop h4{font:700 14px var(--display);margin-bottom:10px}
 .qpop .row{display:flex;gap:8px;margin-bottom:10px}
 .qpop .row label{flex:1;display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}
 .qpop select{height:34px;border-radius:var(--r-s);background:var(--bg3);border:1px solid var(--line2);color:var(--text);padding:0 8px}
-.qpop .st{font-size:12px;color:var(--muted);line-height:1.5;margin-bottom:8px}
+.qpop .st{position:static;width:auto;height:auto;border:0;border-radius:0;background:none;box-sizing:border-box;font-size:12px;color:var(--muted);line-height:1.5;margin-bottom:8px}
 .qpop .hint{background:var(--accent-soft);color:var(--text);border-radius:var(--r-s);padding:8px;font-size:12.5px;margin-top:6px}
 .bstage:fullscreen{width:100vw;height:100vh;background:#000}
 .bstage:fullscreen .btool{position:absolute;top:0;left:0;right:0;z-index:5;transform:translateY(-110%);transition:transform .18s;box-shadow:0 8px 24px rgba(0,0,0,.55)}
@@ -223,7 +225,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 .vp{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--muted)}
 .vp .av{width:20px;height:20px;font-size:9px}
 .vp.sp .av{box-shadow:0 0 0 2px var(--accent)}
-.callstage{display:none;flex-direction:column;flex:1;min-height:0;background:var(--bg0)}
+.callstage{display:none;flex-direction:column;flex:1;min-height:0;background:var(--bg1);border:1px solid var(--line2);border-radius:16px;overflow:hidden}
 .app.incall .callstage{display:flex}.app.incall .browser{display:none}
 .callgrid{flex:1;min-height:0;overflow:auto;display:grid;gap:12px;padding:16px;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));grid-auto-rows:minmax(170px,1fr);scrollbar-width:thin;scrollbar-color:var(--bg4) transparent}
 .tile{position:relative;border-radius:var(--r-m);overflow:hidden;background:var(--bg2);border:2px solid var(--line);display:grid;place-items:center;min-height:0;transition:border-color .15s,box-shadow .15s}
@@ -235,13 +237,14 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 .tile.screen{grid-column:1/-1;grid-row:span 2;order:-1}.tile.screen video{object-fit:contain}
 .tile .who{position:absolute;left:10px;bottom:10px;z-index:2;display:flex;align-items:center;gap:6px;background:rgba(0,0,0,.65);padding:4px 10px;border-radius:14px;font-size:12.5px;font-weight:600}
 .tile .who .i{color:var(--hot)}
-.callbar{display:flex;justify-content:center;gap:10px;padding:12px;border-top:1px solid var(--line);background:var(--bg1)}
+.callbar{display:none;flex:none;justify-content:center;gap:10px;padding:12px;background:var(--bg1);border:1px solid var(--line2);border-radius:16px}
+.app.incall .callbar{display:flex}
 .cb{width:48px;height:48px;border-radius:50%;background:var(--bg3);display:grid;place-items:center;color:var(--text);border:1px solid var(--line2);transition:background .15s,transform .15s}
 .cb:hover{background:var(--bg4)}.cb:active{transform:scale(.93)}
 .cb.on{background:var(--accent);color:var(--accent-ink);border-color:transparent}
 .cb.off{background:var(--hot);color:#fff;border-color:transparent}
 .cb.leave{background:var(--hot);color:#fff;border-color:transparent;width:64px;border-radius:24px}
-.callmini{display:none;align-items:center;gap:8px;padding:8px 10px 8px 14px;background:var(--accent-soft);border-top:1px solid var(--line);color:var(--accent);font-size:12.5px;font-weight:600}
+.callmini{display:none;align-items:center;gap:6px;margin:0 8px 8px;padding:6px 6px 6px 12px;background:var(--accent-soft);border-radius:var(--r-m);color:var(--accent);font-size:12px;font-weight:600}
 .app.incall .callmini{display:flex}.callmini span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .srcgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;max-height:300px;overflow:auto}
 .src{padding:6px;border:2px solid var(--line2);border-radius:var(--r-s);background:var(--bg3);text-align:left}
@@ -304,12 +307,15 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 .stool .bwho{flex:1 1 auto}
 /* barras que somem (tela cheia ou janela maximizada vendo uma fonte) */
 .app.imm{grid-template-rows:1fr}
+.app.imm .shell{padding-top:10px}
 .app.imm .titlebar{position:fixed;top:0;left:0;right:0;z-index:80;height:38px;transform:translateY(-100%);transition:transform .18s;box-shadow:0 8px 24px rgba(0,0,0,.55)}
 .app.imm.tb .titlebar{transform:none}
 .bstage.imm,.sstage.imm{position:relative}
 .bstage.imm .btool,.sstage.imm .btool{position:absolute;top:0;left:0;right:0;z-index:5;transform:translateY(-110%);transition:transform .18s;box-shadow:0 8px 24px rgba(0,0,0,.55)}
-.app.imm.tb .bstage .btool,.app.imm.tb .sstage .btool{top:38px;transform:none}
+.app.imm.tb .bstage .btool,.app.imm.tb .sstage .btool{top:27px;transform:none}
 .bstage.imm.tb:fullscreen .btool,.sstage.imm.tb:fullscreen .btool,.bstage.imm:fullscreen .btool:focus-within,.sstage.imm:fullscreen .btool:focus-within{top:0;transform:none}
+/* janela mínima (1100px): barra de botões da chamada cabe na coluna central */
+@media (max-width:1180px){.callbar{gap:8px;padding:10px 8px}.cb{width:44px;height:44px}.cb.leave{width:60px}}
 </style>
 </head>
 <body>
@@ -385,6 +391,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
     </nav>
 
     <aside class="side" aria-label="Canais">
+      <div class="card sidecard">
       <div class="gh">
         <h2 id="gname">—</h2>
         <div class="acts">
@@ -397,6 +404,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
         <div class="empty-s" style="padding:30px 10px">Selecione um grupo.</div>
       </div>
       <div class="callmini" id="callMini"><svg class="i sm"><use href="#mic"/></svg><span id="callMiniText">Em chamada</span><button class="ib" id="cmLeave" aria-label="Sair da chamada" title="Sair da chamada"><svg class="i"><use href="#phone"/></svg></button></div>
+      </div>
       <div class="me">
         <button class="meb" id="meBtn" aria-haspopup="menu" aria-expanded="false" aria-label="Abrir menu da conta">
           <span class="av c1" id="meAv">?<span class="st online" id="meSt"></span></span>
@@ -455,15 +463,15 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
           <div class="st" id="qStat">Sem transmissão de tela/navegador no momento.</div>
           <div class="hint" id="qHint" hidden><span id="qHintTxt"></span> <button type="button" class="btn sm" id="qApply">Reduzir</button></div>
         </div>
-        <div class="callbar" id="callBar">
-          <button class="cb" id="cbMic" aria-label="Microfone" title="Microfone"><svg class="i"><use href="#mic"/></svg></button>
-          <button class="cb" id="cbHp" aria-label="Silenciar o áudio da chamada" title="Fone"><svg class="i"><use href="#hp"/></svg></button>
-          <button class="cb" id="cbCam" aria-label="Câmera" title="Câmera"><svg class="i"><use href="#camoff"/></svg></button>
-          <button class="cb" id="cbScr" aria-label="Compartilhar tela" title="Compartilhar tela"><svg class="i"><use href="#scr"/></svg></button>
-          <button class="cb" id="cbQ" aria-label="Qualidade da transmissão" title="Qualidade da tela e do navegador (resolução e fps)"><svg class="i"><use href="#cog"/></svg></button>
-          <button class="cb" id="cbBrw" aria-label="Navegador compartilhado" title="Abrir navegador compartilhado"><svg class="i"><use href="#globe"/></svg></button>
-          <button class="cb leave" id="cbLeave" aria-label="Sair da chamada" title="Sair da chamada"><svg class="i"><use href="#phone"/></svg></button>
-        </div>
+      </div>
+      <div class="callbar" id="callBar">
+        <button class="cb" id="cbMic" aria-label="Microfone" title="Microfone"><svg class="i"><use href="#mic"/></svg></button>
+        <button class="cb" id="cbHp" aria-label="Silenciar o áudio da chamada" title="Fone"><svg class="i"><use href="#hp"/></svg></button>
+        <button class="cb" id="cbCam" aria-label="Câmera" title="Câmera"><svg class="i"><use href="#camoff"/></svg></button>
+        <button class="cb" id="cbScr" aria-label="Compartilhar tela" title="Compartilhar tela"><svg class="i"><use href="#scr"/></svg></button>
+        <button class="cb" id="cbQ" aria-label="Qualidade da transmissão" title="Qualidade da tela e do navegador (resolução e fps)"><svg class="i"><use href="#cog"/></svg></button>
+        <button class="cb" id="cbBrw" aria-label="Navegador compartilhado" title="Abrir navegador compartilhado"><svg class="i"><use href="#globe"/></svg></button>
+        <button class="cb leave" id="cbLeave" aria-label="Sair da chamada" title="Sair da chamada"><svg class="i"><use href="#phone"/></svg></button>
       </div>
       <div class="browser m-empty" id="browser">
         <div class="empty" id="empty">
@@ -475,7 +483,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
     </main>
 
     <aside class="right" id="right" aria-label="Chat do canal">
-      <section class="chat" id="chat" style="border-top:0;flex:1">
+      <section class="chat" id="chat">
         <div class="chh">
           <svg class="i sm"><use href="#hash"/></svg>
           <span id="chname">—</span>
