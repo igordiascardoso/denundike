@@ -666,7 +666,13 @@ $('#compose').addEventListener('submit', async e => {
   $('#cin').value = '';
   try {
     await api('POST', '/api/channels/' + activeChannel.id + '/messages', { content: v });
-    // server will broadcast via WS; we also add locally as fallback
+    // Insert locally; WS skips our own messages to avoid duplicates
+    appendMessage({
+      author_id:  USER.id,
+      login:      USER.login,
+      content:    v,
+      created_at: new Date().toISOString(),
+    });
   } catch (err) {
     toast('Erro ao enviar: ' + err.message);
     $('#cin').value = v; // restore on error
@@ -678,17 +684,17 @@ let wsReady = false;
 
 function connectWS() {
   window.bridge.ws.onMessage(msg => {
-    if (msg.type === 'message' && activeChannel && msg.channel_id === activeChannel.id) {
-      // skip if it's our own message (we already showed it via compose)
-      appendMessage({
-        id:         msg.id,
-        channel_id: msg.channel_id,
-        author_id:  msg.author_id,
-        content:    msg.content,
-        created_at: new Date().toISOString(),
-        login:      msg.login || null,
-      });
-    }
+    if (msg.type !== 'message') return;
+    if (msg.author_id === USER?.id) return; // already inserted locally by compose
+    if (!activeChannel || msg.channel_id !== activeChannel.id) return;
+    appendMessage({
+      id:         msg.id,
+      channel_id: msg.channel_id,
+      author_id:  msg.author_id,
+      content:    msg.content,
+      created_at: new Date().toISOString(),
+      login:      msg.login || null,
+    });
   });
 
   window.bridge.ws.onReconnect(attempt => {
