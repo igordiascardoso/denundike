@@ -40,6 +40,20 @@ contextBridge.exposeInMainWorld('bridge', {
     choose: (id, audio) => ipcRenderer.invoke('screen-choose', { id, audio }),
   },
 
+  browser: {
+    available: () => ipcRenderer.invoke('browser-available'),
+    start: (url) => ipcRenderer.invoke('browser-start', url),
+    stop: () => ipcRenderer.invoke('browser-stop'),
+    nav: (n) => ipcRenderer.invoke('browser-nav', n),
+    input: (from, ev) => ipcRenderer.invoke('browser-input', { from, ev }),
+    overlay: (on) => ipcRenderer.invoke('browser-overlay', on),
+    park: (on) => ipcRenderer.invoke('browser-park', on),
+    onUrl: (cb) => ipcRenderer.on('browser-url', (_e, u) => cb(u)),
+    onEnded: (cb) => ipcRenderer.on('browser-ended', () => cb()),
+    onSize: (cb) => ipcRenderer.on('browser-size', () => cb()),
+    onMotion: (cb) => ipcRenderer.on('browser-motion', (_e, m) => cb(!!m)),
+  },
+
   ws: {
     connect: (token) => wsClient.connect(BASE_URL, token),
     send: (obj) => wsClient.send(obj),

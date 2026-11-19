@@ -187,6 +187,34 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 .fr .acts{align-items:center}
 .fr .btn.sm{height:32px}
 .sel{appearance:none;width:100%}
+/* ── navegador compartilhado ── */
+.bstage{display:flex;flex-direction:column;flex:1;min-height:0;background:#000;border-bottom:1px solid var(--line)}
+.btool{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg1);border-bottom:1px solid var(--line)}
+.burl{flex:1;min-width:0;height:34px;border-radius:17px;background:var(--bg3);border:1px solid var(--line2);color:var(--text);padding:0 14px;font:13px var(--body)}
+.burl:focus{outline:none;border-color:var(--accent)}
+.bwho{color:var(--muted);font-size:12.5px;white-space:nowrap}
+.bview{position:relative;flex:1;min-height:0;background:#000;outline:none;cursor:default}
+.bview:focus{box-shadow:inset 0 0 0 2px var(--accent-soft)}
+.bview video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000}
+.bcur{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.bc{position:absolute;transform:translate(-2px,-2px);transition:left .06s linear,top .06s linear}
+.bc svg{width:16px;height:16px;display:block}
+.bc span{position:absolute;left:14px;top:12px;background:var(--c);color:#000;font:600 11px var(--body);padding:2px 6px;border-radius:8px;white-space:nowrap}
+.bbanner{display:flex;justify-content:center;padding:8px;background:var(--bg1);border-bottom:1px solid var(--line)}
+.qpop{position:absolute;right:16px;bottom:78px;z-index:30;width:268px;background:var(--bg2);border:1px solid var(--line2);border-radius:var(--r-m);padding:14px;box-shadow:0 16px 40px rgba(0,0,0,.5)}
+.qpop[hidden]{display:none}
+.qpop h4{font:700 14px var(--display);margin-bottom:10px}
+.qpop .row{display:flex;gap:8px;margin-bottom:10px}
+.qpop .row label{flex:1;display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}
+.qpop select{height:34px;border-radius:var(--r-s);background:var(--bg3);border:1px solid var(--line2);color:var(--text);padding:0 8px}
+.qpop .st{font-size:12px;color:var(--muted);line-height:1.5;margin-bottom:8px}
+.qpop .hint{background:var(--accent-soft);color:var(--text);border-radius:var(--r-s);padding:8px;font-size:12.5px;margin-top:6px}
+.bstage:fullscreen{width:100vw;height:100vh;background:#000}
+.bstage:fullscreen .btool{position:absolute;top:0;left:0;right:0;z-index:5;transform:translateY(-110%);transition:transform .18s;box-shadow:0 8px 24px rgba(0,0,0,.55)}
+.bstage.bar:fullscreen .btool,.bstage:fullscreen .btool:focus-within{transform:none}
+.bwait{position:absolute;inset:0;display:grid;place-items:center;color:var(--muted);font-size:14px;background:#000}
+.callstage.hasb .callgrid{flex:0 0 140px;grid-auto-flow:column;grid-template-columns:none;grid-template-rows:1fr;grid-auto-columns:minmax(170px,210px);grid-auto-rows:unset;padding:8px 12px;gap:8px}
+.callstage.hasb .tile.screen{grid-column:auto;grid-row:auto;order:0}
 /* ── chamadas ── */
 .ch.vc .i{color:var(--dim)}.ch.vc.live{color:var(--accent);font-weight:600}.ch.vc.live .i{color:var(--accent)}
 .vpeople{display:flex;flex-direction:column;gap:3px;padding:0 0 6px 28px}
@@ -248,6 +276,9 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 <symbol id="min" viewBox="0 0 24 24"><path d="M6 12h12"/></symbol>
 <symbol id="sq" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1"/></symbol>
 <symbol id="clip" viewBox="0 0 24 24"><path d="M20 11 11.5 19.5a5 5 0 0 1-7-7L13 4a3.5 3.5 0 0 1 5 5l-8.5 8.5a2 2 0 0 1-3-3L14 7"/></symbol>
+<symbol id="fs" viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></symbol>
+<symbol id="bk" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></symbol>
+<symbol id="fw" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></symbol>
 <symbol id="reload" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.5-5.8M20 4v5h-5"/></symbol>
 <symbol id="cam" viewBox="0 0 24 24"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="M16 10l5-3v10l-5-3"/></symbol>
 <symbol id="camoff" viewBox="0 0 24 24"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="M16 10l5-3v10l-5-3M3 3l18 18"/></symbol>
@@ -312,12 +343,41 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 
     <main class="center" id="center">
       <div class="callstage" id="callStage">
+        <div class="bbanner" id="bBanner" hidden><button type="button" class="btn sm" id="bOpen">Sessão de navegador ativa — abrir</button></div>
+        <div class="bstage" id="bStage" hidden>
+          <form class="btool" id="bForm">
+            <button type="button" class="ib" id="bBack" aria-label="Voltar" title="Voltar"><svg class="i"><use href="#bk"/></svg></button>
+            <button type="button" class="ib" id="bFwd" aria-label="Avançar" title="Avançar"><svg class="i"><use href="#fw"/></svg></button>
+            <button type="button" class="ib" id="bReload" aria-label="Recarregar" title="Recarregar"><svg class="i"><use href="#reload"/></svg></button>
+            <input class="burl" id="bUrl" placeholder="Digite um endereço ou pesquise" autocomplete="off" spellcheck="false" aria-label="Endereço">
+            <span class="bwho" id="bWho"></span>
+            <button type="button" class="ib" id="bHide" aria-label="Recolher o navegador" title="Recolher (a sessão continua para os outros)"><svg class="i"><use href="#x"/></svg></button>
+            <button type="button" class="ib" id="bFull" aria-label="Tela cheia" title="Tela cheia (F ou duplo clique; Esc sai)"><svg class="i"><use href="#fs"/></svg></button>
+            <button type="button" class="btn sm" id="bStop" hidden>Encerrar</button>
+          </form>
+          <div class="bview" id="bView" tabindex="0" aria-label="Navegador compartilhado: clique e digite aqui">
+            <video id="bVideo" autoplay playsinline></video>
+            <div class="bcur" id="bCur"></div>
+            <div class="bwait" id="bWait">Conectando ao navegador…</div>
+          </div>
+        </div>
         <div class="callgrid" id="callGrid" aria-live="polite"></div>
+        <div class="qpop" id="qPop" hidden role="dialog" aria-label="Qualidade da transmissão">
+          <h4>Qualidade da transmissão</h4>
+          <div class="row">
+            <label>Resolução<select id="qRes"><option value="720">720p</option><option value="1080">1080p</option><option value="1440">1440p</option></select></label>
+            <label>Quadros por segundo<select id="qFps"><option value="30">30 fps</option><option value="60">60 fps</option></select></label>
+          </div>
+          <div class="st" id="qStat">Sem transmissão de tela/navegador no momento.</div>
+          <div class="hint" id="qHint" hidden><span id="qHintTxt"></span> <button type="button" class="btn sm" id="qApply">Reduzir</button></div>
+        </div>
         <div class="callbar" id="callBar">
           <button class="cb" id="cbMic" aria-label="Microfone" title="Microfone"><svg class="i"><use href="#mic"/></svg></button>
           <button class="cb" id="cbHp" aria-label="Silenciar o áudio da chamada" title="Fone"><svg class="i"><use href="#hp"/></svg></button>
           <button class="cb" id="cbCam" aria-label="Câmera" title="Câmera"><svg class="i"><use href="#camoff"/></svg></button>
           <button class="cb" id="cbScr" aria-label="Compartilhar tela" title="Compartilhar tela"><svg class="i"><use href="#scr"/></svg></button>
+          <button class="cb" id="cbQ" aria-label="Qualidade da transmissão" title="Qualidade da tela e do navegador"><svg class="i"><use href="#sl"/></svg></button>
+          <button class="cb" id="cbBrw" aria-label="Navegador compartilhado" title="Abrir navegador compartilhado"><svg class="i"><use href="#globe"/></svg></button>
           <button class="cb leave" id="cbLeave" aria-label="Sair da chamada" title="Sair da chamada"><svg class="i"><use href="#phone"/></svg></button>
         </div>
       </div>
@@ -325,7 +385,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
         <div class="empty" id="empty">
           <div class="ring"><svg class="i" style="width:54px;height:54px;stroke-width:1.3"><use href="#scr"/></svg></div>
           <h2>Navegador compartilhado</h2>
-          <p>Abra um site e toda a galera vê junto. Disponível na próxima versão do Denundike.</p>
+          <p>Entre num canal de voz e use o botão do globo: todo mundo na chamada vê o mesmo site e controla junto, inclusive Netflix e Spotify.</p>
         </div>
       </div>
     </main>
@@ -460,6 +520,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 </div></div>
 
 <script src="js/call.js"></script>
+<script src="js/browser.js"></script>
 <script>
 /* ── utilidades ── */
 const $ = (s, r = document) => r.querySelector(s);
@@ -893,6 +954,9 @@ function connectWS() {
         renderVoicePresence();
         break;
       }
+      case 'browser_state': case 'browser_cmd': case 'browser_cursor': case 'browser_error':
+        if (bshare) bshare.handleWS(ev);
+        break;
       case 'voice_peers': case 'voice_joined': case 'voice_left':
       case 'signal': case 'voice_media': case 'voice_error':
         call.handleWS(ev);
@@ -1148,15 +1212,26 @@ async function doLogout() {
 
 /* ── chamadas de voz, vídeo e tela ── */
 const voicePresence = new Map(); // channelId → [{user_id, login}]
+let bshare = null;
 const call = new CallManager({
   me: { id: USER ? USER.id : '', login: USER ? USER.login : '' },
   send: obj => window.bridge.ws.send(obj),
   getIce: async () => (await api('GET', '/api/ice')).iceServers,
-  onChange: () => renderCall(),
+  onChange: () => { renderCall(); if (bshare) bshare.render(); },
+  onLeave: () => { if (bshare) bshare.reset(); },
+  onQuality: () => { if (bshare) bshare.applyQuality(); syncQuality(); },
+  onStrain: info => showStrain(info),
   toast: (m, err) => toast(m, err),
   pickScreen: pickScreenSource,
 });
 window.__call = call;
+bshare = new BrowserShare({
+  me: { id: USER ? USER.id : '', login: USER ? USER.login : '' },
+  call,
+  send: obj => window.bridge.ws.send(obj),
+  toast: (m, err) => toast(m, err),
+});
+window.__bshare = bshare;
 
 async function joinVoice(ch) {
   if (call.channelId === ch.id) return;
@@ -1281,6 +1356,29 @@ $('#cbHp').onclick  = () => call.setDeafened(!call.deafened);
 $('#cbCam').onclick = e => run(e.currentTarget, () => call.setCamera(!call.cameraOn));
 $('#cbScr').onclick = e => run(e.currentTarget, () => call.setScreen(!call.screenOn));
 $('#cbLeave').onclick = $('#cmLeave').onclick = () => call.leave();
+
+/* ── qualidade da transmissão (tela e navegador) ── */
+let strainSuggestion = null;
+function syncQuality() {
+  $('#qRes').value = String(call.quality.h);
+  $('#qFps').value = String(call.quality.fps);
+}
+function showStrain(info) {
+  strainSuggestion = info.suggestion;
+  $('#qHintTxt').textContent = 'Seu envio está engasgando (' + (info.reason === 'cpu' ? 'processador' : 'internet') + ', ' + Math.round(info.fps) + ' fps). Sugestão: ' + info.suggestion.h + 'p' + info.suggestion.fps + '.';
+  $('#qHint').hidden = false;
+  toast('Seu envio está engasgando — abra a Qualidade e reduza para ' + info.suggestion.h + 'p' + info.suggestion.fps, true);
+}
+$('#cbQ').onclick = () => { const p = $('#qPop'); p.hidden = !p.hidden; syncQuality(); };
+$('#qRes').onchange = $('#qFps').onchange = () => { $('#qHint').hidden = true; call.setQuality({ h: $('#qRes').value, fps: $('#qFps').value }); };
+$('#qApply').onclick = () => { if (strainSuggestion) call.setQuality(strainSuggestion); $('#qHint').hidden = true; };
+setInterval(() => {
+  const s = call.sendStats;
+  $('#qStat').textContent = s
+    ? 'Enviando ' + (s.w || '?') + '×' + (s.h || '?') + ' a ' + Math.round(s.fps) + ' fps · ' + (s.bps / 1e6).toFixed(1) + ' Mbps' + (s.limit !== 'none' ? ' · limitado por ' + (s.limit === 'cpu' ? 'processador' : 'internet') : '')
+    : 'Sem transmissão de tela/navegador no momento.';
+}, 1500);
+syncQuality();
 syncCallButtons();
 
 /* ── range sliders ── */

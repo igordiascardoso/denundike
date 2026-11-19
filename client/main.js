@@ -2,6 +2,7 @@ const { app, BrowserWindow, ipcMain, Menu, session } = require('electron');
 const path = require('path');
 const { autoUpdater } = require('electron-updater');
 const { setupMedia, registerMediaIpc } = require('./media');
+const { registerBrowserIpc } = require('./browserhost');
 
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 
@@ -23,6 +24,7 @@ function createMainWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
+      backgroundThrottling: false,
     },
   });
 
@@ -79,6 +81,7 @@ app.whenReady().then(() => {
   Menu.setApplicationMenu(null);
   setupMedia(session.defaultSession);
   registerMediaIpc();
+  registerBrowserIpc();
   createLoginWindow();
   autoUpdater.checkForUpdatesAndNotify();
 });

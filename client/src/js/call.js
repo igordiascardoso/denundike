@@ -5,6 +5,15 @@
   const FALLBACK_ICE = [{ urls: ['stun:stun.l.google.com:19302'] }];
   const SPEAK_ON = 0.035;
   const SPEAK_HOLD_MS = 450;
+  const BITRATE = { '720_30': 2500000, '720_60': 4000000, '1080_30': 6000000, '1080_60': 9000000, '1440_30': 10000000, '1440_60': 14000000 };
+  const QKEY = 'dk_quality';
+  function loadQuality() {
+    try {
+      const q = JSON.parse(localStorage.getItem(QKEY) || 'null');
+      if (q && [720, 1080, 1440].includes(+q.h) && [30, 60].includes(+q.fps)) return { h: +q.h, fps: +q.fps };
+    } catch (_) {}
+    return { h: 1080, fps: 30 };
+  }
 
   class CallManager {
     /**
@@ -19,6 +28,7 @@
       this.camTrack = null;
       this.camStream = null;
       this.screenStream = null;
+      this.browserStream = null;
       this.muted = false;
       this.deafened = false;
       this._mutedBeforeDeaf = false;
@@ -27,11 +37,17 @@
       this._selfAnalyser = null;
       this._speakTimer = null;
       this._ice = null;
+      this.quality = loadQuality();
+      this.sendStats = null;
+      this._strain = 0;
+      this._lastWarn = 0;
     }
 
+    static bitrate(q) { return BITRATE[q.h + '_' + q.fps] || 6000000; }
     get inCall() { return !!this.channelId; }
     get cameraOn() { return !!this.camTrack; }
     get screenOn() { return !!this.screenStream; }
+    get browserOn() { return !!this.browserStream; }
 
     _changed() { try { this.o.onChange(); } catch (_) {} }
 
@@ -69,6 +85,7 @@
 
       this.o.send({ type: 'voice_join', channel_id: channelId });
       this._startSpeakLoop();
+      clearInterval(this._statsT); this._statsT = setInterval(() => this._pollStats(), 3000);
       this._changed();
     }
 
@@ -82,11 +99,13 @@
       for (const id of [...this.peers.keys()]) this._removePeer(id);
       [this.mic, this.camTrack].forEach(t => { try { t && t.stop(); } catch (_) {} });
       if (this.screenStream) this.screenStream.getTracks().forEach(t => { try { t.stop(); } catch (_) {} });
-      this.mic = null; this.camTrack = null; this.camStream = null; this.screenStream = null;
+      this.mic = null; this.camTrack = null; this.camStream = null; this.screenStream = null; this.browserStream = null;
       this._selfAnalyser = null;
       clearInterval(this._speakTimer); this._speakTimer = null;
+      clearInterval(this._statsT); this._statsT = null; this.sendStats = null; this._prev = null;
       this.speakingSelf = false;
       this.channelId = null;
+      try { this.o.onLeave && this.o.onLeave(); } catch (_) {}
       this._changed();
     }
 
@@ -118,7 +137,7 @@
         let stream;
         try {
           stream = await navigator.mediaDevices.getUserMedia({
-            video: { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } },
+            video: { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30 } },
           });
         } catch (e) {
           this.o.toast(e && e.name === 'NotFoundError' ? 'Nenhuma câmera encontrada.' : 'Sem acesso à câmera.', true);
@@ -153,7 +172,7 @@
         let stream;
         try {
           stream = await navigator.mediaDevices.getDisplayMedia({
-            video: { frameRate: { ideal: 30 } },
+            video: { frameRate: { ideal: this.quality.fps } },
             audio: !!choice.audio,
           });
         } catch (e) {
@@ -163,7 +182,7 @@
         if (!this.inCall) { stream.getTracks().forEach(t => t.stop()); return; }
         this.screenStream = stream;
         const v = stream.getVideoTracks()[0];
-        if (v) v.onended = () => this.setScreen(false);
+        if (v) { v.onended = () => this.setScreen(false); v.contentHint = 'detail'; }
         for (const p of this.peers.values()) this._attachScreen(p);
       } else {
         const s = this.screenStream;
@@ -178,6 +197,25 @@
       this._changed();
     }
 
+    /* ── navegador compartilhado (faixa extra, só do anfitrião) ── */
+    setBrowserStream(stream) {
+      if (stream && !this.inCall) return;
+      for (const p of this.peers.values()) {
+        (p.browserSenders || []).forEach(snd => { try { p.pc.removeTrack(snd); } catch (_) {} });
+        p.browserSenders = [];
+      }
+      this.browserStream = stream || null;
+      if (stream) for (const p of this.peers.values()) this._attachBrowser(p);
+      this._sendMedia();
+      this._changed();
+    }
+
+    browserStreamOf(userId) {
+      const p = this.peers.get(userId);
+      if (!p || !p.media || !p.media.browser) return null;
+      return p.streams.get(p.media.browser) || null;
+    }
+
     _sendMedia() {
       if (!this.inCall) return;
       this.o.send({
@@ -185,6 +223,7 @@
         data: {
           muted: this.muted, deafened: this.deafened, cam: this.cameraOn,
           screen: this.screenStream ? this.screenStream.id : null,
+          browser: this.browserStream ? this.browserStream.id : null,
         },
       });
     }
@@ -259,7 +298,7 @@
         polite: this.o.me.id < user.user_id,
         makingOffer: false, ignoreOffer: false, suppress: !initiator,
         streams: new Map(), media: {}, speaking: false, _lastVoice: 0, analysers: new Map(),
-        camSender: null, screenSenders: [], q: Promise.resolve(), failedOnce: false,
+        camSender: null, screenSenders: [], browserSenders: [], q: Promise.resolve(), failedOnce: false,
       };
       this.peers.set(p.id, p);
 
@@ -302,22 +341,131 @@
       else if (initiator) pc.addTransceiver('audio', { direction: 'recvonly' });
       if (this.camTrack) this._attachCam(p);
       if (this.screenStream) this._attachScreen(p);
+      if (this.browserStream) this._attachBrowser(p);
       return p;
     }
 
     _attachCam(p) {
       if (!this.camTrack || p.camSender) return;
       p.camSender = p.pc.addTrack(this.camTrack, this.camStream);
-      this._tune(p.camSender, 1500000);
+      this._tune(p.camSender, 3500000);
     }
 
     _attachScreen(p) {
       if (!this.screenStream) return;
-      p.screenSenders = this.screenStream.getTracks().map(t => {
-        const s = p.pc.addTrack(t, this.screenStream);
-        if (t.kind === 'video') this._tune(s, 4000000);
-        return s;
-      });
+      p.screenSenders = this.screenStream.getTracks().map(t => t.kind === 'video'
+        ? this._addHdVideo(p, t, this.screenStream)
+        : p.pc.addTrack(t, this.screenStream));
+    }
+
+    _attachBrowser(p) {
+      if (!this.browserStream) return;
+      p.browserSenders = this.browserStream.getTracks().map(t => t.kind === 'video'
+        ? this._addHdVideo(p, t, this.browserStream)
+        : p.pc.addTrack(t, this.browserStream));
+    }
+
+    /** vídeo de tela/navegador: resolução nativa, bitrate alto, sem reduzir resolução sob pressão, codec VP9/H264 */
+    _addHdVideo(p, track, stream) {
+      const enc = this._hdEncoding(track);
+      const tr = p.pc.addTransceiver(track, { direction: 'sendonly', streams: [stream], sendEncodings: [enc] });
+      this._preferCodecs(tr);
+      const snd = tr.sender;
+      this._tuneHd(snd, track);
+      setTimeout(() => this._tuneHd(snd, track), 1500);
+      setTimeout(() => this._tuneHd(snd, track), 5000);
+      return snd;
+    }
+
+    _hdEncoding(track) {
+      const q = this.quality;
+      const st = (track && track.getSettings && track.getSettings()) || {};
+      const scale = st.height ? Math.max(1, Math.round((st.height / q.h) * 100) / 100) : 1;
+      return { maxBitrate: CallManager.bitrate(q), maxFramerate: q.fps, scaleResolutionDownBy: scale };
+    }
+
+    _preferCodecs(tr) {
+      try {
+        const caps = RTCRtpSender.getCapabilities('video');
+        if (!caps || !tr.setCodecPreferences) return;
+        const rank = m => (/vp9/i.test(m) ? 0 : /h264/i.test(m) ? 1 : /vp8/i.test(m) ? 2 : /av1/i.test(m) ? 3 : 4);
+        tr.setCodecPreferences([...caps.codecs].sort((a, b) => rank(a.mimeType) - rank(b.mimeType)));
+      } catch (_) {}
+    }
+
+    /** nitidez antes de tudo: não reduz a resolução sob pressão de banda */
+    _tuneHd(sender, track) {
+      try {
+        const params = sender.getParameters();
+        params.encodings = params.encodings && params.encodings.length ? params.encodings : [{}];
+        Object.assign(params.encodings[0], this._hdEncoding(track || sender.track));
+        params.degradationPreference = 'maintain-resolution';
+        sender.setParameters(params).catch(() => {});
+      } catch (_) {}
+    }
+
+    /* ── qualidade escolhida pelo usuário (tela e navegador) ── */
+    setQuality(q) {
+      this.quality = { h: [720, 1080, 1440].includes(+q.h) ? +q.h : 1080, fps: +q.fps === 60 ? 60 : 30 };
+      try { localStorage.setItem(QKEY, JSON.stringify(this.quality)); } catch (_) {}
+      for (const p of this.peers.values()) {
+        [...(p.screenSenders || []), ...(p.browserSenders || [])].forEach(snd => {
+          if (snd.track && snd.track.kind === 'video') this._tuneHd(snd, snd.track);
+        });
+      }
+      const sv = this.screenStream && this.screenStream.getVideoTracks()[0];
+      if (sv) sv.applyConstraints({ frameRate: { ideal: this.quality.fps } }).catch(() => {});
+      this._strain = 0;
+      try { this.o.onQuality && this.o.onQuality(this.quality); } catch (_) {}
+      this._changed();
+    }
+
+    /** próximo patamar abaixo, ou null se já está no mínimo */
+    suggestLower() {
+      const { h, fps } = this.quality;
+      if (fps === 60) return { h, fps: 30 };
+      if (h === 1440) return { h: 1080, fps };
+      if (h === 1080) return { h: 720, fps };
+      return null;
+    }
+
+    /** avalia uma amostra de envio e avisa se está engasgando (2 amostras seguidas) */
+    _evalStrain(s) {
+      const bad = s.limit !== 'none' && s.fps > 0 && s.fps < this.quality.fps * 0.75;
+      this._strain = bad ? this._strain + 1 : 0;
+      if (this._strain >= 2 && Date.now() - this._lastWarn > 60000) {
+        const sug = this.suggestLower();
+        if (sug) {
+          this._lastWarn = Date.now();
+          try { this.o.onStrain && this.o.onStrain({ reason: s.limit, fps: s.fps, suggestion: sug }); } catch (_) {}
+        }
+      }
+    }
+
+    async _pollStats() {
+      const snds = [];
+      for (const p of this.peers.values()) {
+        [...(p.screenSenders || []), ...(p.browserSenders || [])].forEach(s => { if (s.track && s.track.kind === 'video') snds.push(s); });
+      }
+      if (!snds.length) { this.sendStats = null; this._prev = null; return; }
+      let bytes = 0, fps = 0, w = 0, h = 0, limit = 'none';
+      for (const s of snds) {
+        try {
+          (await s.getStats()).forEach(r => {
+            if (r.type === 'outbound-rtp' && r.kind === 'video') {
+              bytes += r.bytesSent || 0;
+              if ((r.framesPerSecond || 0) > fps) fps = r.framesPerSecond;
+              w = r.frameWidth || w; h = r.frameHeight || h;
+              if (r.qualityLimitationReason && r.qualityLimitationReason !== 'none') limit = r.qualityLimitationReason;
+            }
+          });
+        } catch (_) {}
+      }
+      const now = performance.now();
+      const bps = this._prev ? Math.max(0, (bytes - this._prev.bytes) * 8 / ((now - this._prev.t) / 1000)) : 0;
+      this._prev = { bytes, t: now };
+      this.sendStats = { bps, fps, w, h, limit, peers: snds.length };
+      this._evalStrain(this.sendStats);
     }
 
     _tune(sender, maxBitrate) {
@@ -412,7 +560,7 @@
         if (selfSpeaking !== this.speakingSelf) { this.speakingSelf = selfSpeaking; dirty = true; }
         for (const p of this.peers.values()) {
           let loud = false;
-          for (const a of p.analysers.values()) if (this._level(a) > SPEAK_ON) loud = true;
+          for (const [sid, a] of p.analysers) if (sid !== (p.media && p.media.browser) && this._level(a) > SPEAK_ON) loud = true;
           if (loud) p._lastVoice = now;
           const sp = now - p._lastVoice < SPEAK_HOLD_MS && !p.media.muted;
           if (sp !== p.speaking) { p.speaking = sp; dirty = true; }
@@ -441,6 +589,7 @@
         const screenId = p.media && p.media.screen;
         let camStream = null;
         for (const [sid, s] of p.streams) {
+          if (p.media && p.media.browser && sid === p.media.browser) continue;
           if (screenId && sid === screenId) {
             out.push({
               key: p.id + ':screen', userId: p.id, login: p.login, screen: true,
