@@ -21,9 +21,10 @@ var (
 
 // Member is a group member as shown in the member list.
 type Member struct {
-	ID      string `json:"id"`
-	Login   string `json:"login"`
-	IsOwner bool   `json:"is_owner"`
+	ID         string     `json:"id"`
+	Login      string     `json:"login"`
+	IsOwner    bool       `json:"is_owner"`
+	LastSeenAt *time.Time `json:"last_seen_at,omitempty"`
 }
 
 // ReceivedInvite is a pending direct invitation addressed to a user.
@@ -56,7 +57,7 @@ func MemberIDs(db *sql.DB, groupID string) ([]string, error) {
 // ListMembers returns the members of groupID with their logins.
 func ListMembers(db *sql.DB, groupID string) ([]Member, error) {
 	rows, err := db.Query(`
-		SELECT u.id, u.login, (g.owner_id = u.id)
+		SELECT u.id, u.login, (g.owner_id = u.id), u.last_seen_at
 		FROM group_members gm
 		JOIN users u ON u.id = gm.user_id
 		JOIN groups g ON g.id = gm.group_id
@@ -70,8 +71,13 @@ func ListMembers(db *sql.DB, groupID string) ([]Member, error) {
 	members := []Member{}
 	for rows.Next() {
 		var m Member
-		if err := rows.Scan(&m.ID, &m.Login, &m.IsOwner); err != nil {
+		var seen sql.NullTime
+		if err := rows.Scan(&m.ID, &m.Login, &m.IsOwner, &seen); err != nil {
 			return nil, err
+		}
+		if seen.Valid {
+			t := seen.Time
+			m.LastSeenAt = &t
 		}
 		members = append(members, m)
 	}

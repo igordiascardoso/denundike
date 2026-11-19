@@ -105,11 +105,55 @@ func migrate(database *sql.DB) error {
 		}
 	}
 
+	// Columns added after the first release; ALTERs are skipped when already present.
+	for _, c := range [][3]string{
+		{"users", "display_name", "TEXT"},
+		{"users", "recovery_hash", "TEXT"},
+		{"users", "last_seen_at", "DATETIME"},
+		{"users", "invited_by", "TEXT"},
+		{"users", "points", "INTEGER NOT NULL DEFAULT 0"},
+		{"users", "first_msg_awarded", "INTEGER NOT NULL DEFAULT 0"},
+	} {
+		if err := addColumn(database, c[0], c[1], c[2]); err != nil {
+			return err
+		}
+	}
+
 	// Every group gets one voice room; backfills groups created before voice existed.
 	_, err := database.Exec(`
 		INSERT INTO channels (id, group_id, name, type, created_at)
 		SELECT lower(hex(randomblob(16))), g.id, 'Sala de voz', 'voice', CURRENT_TIMESTAMP
 		FROM groups g
 		WHERE NOT EXISTS (SELECT 1 FROM channels c WHERE c.group_id = g.id AND c.type = 'voice')`)
+	return err
+}
+
+// addColumn adds col to table unless it already exists, preserving all data.
+func addColumn(database *sql.DB, table, col, def string) error {
+	rows, err := database.Query("PRAGMA table_info(" + table + ")")
+	if err != nil {
+		return err
+	}
+	exists := false
+	for rows.Next() {
+		var cid, notnull, pk int
+		var name, typ string
+		var dflt sql.NullString
+		if err := rows.Scan(&cid, &name, &typ, &notnull, &dflt, &pk); err != nil {
+			rows.Close()
+			return err
+		}
+		if name == col {
+			exists = true
+		}
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	if exists {
+		return nil
+	}
+	_, err = database.Exec("ALTER TABLE " + table + " ADD COLUMN " + col + " " + def)
 	return err
 }

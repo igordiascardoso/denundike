@@ -22,9 +22,10 @@ type Friendship struct {
 
 // FriendEntry is the view returned in GET /api/friends.
 type FriendEntry struct {
-	ID        string `json:"id"`
-	UserID    string `json:"user_id"`
-	Login     string `json:"login"`
-	Direction string `json:"direction"` // "sent" | "received"
-	Status    Status `json:"status"`
+	ID         string     `json:"id"`
+	UserID     string     `json:"user_id"`
+	Login      string     `json:"login"`
+	Direction  string     `json:"direction"` // "sent" | "received"
+	Status     Status     `json:"status"`
+	LastSeenAt *time.Time `json:"last_seen_at,omitempty"`
 }

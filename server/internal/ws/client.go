@@ -88,6 +88,7 @@ func HandleWS(db *sql.DB, hub *Hub) http.HandlerFunc {
 			db:        db,
 		}
 		hub.Subscribe(c)
+		auth.SetLastSeen(db, user.ID)
 
 		go c.writePump()
 		go c.readPump()
@@ -100,6 +101,7 @@ func (c *Client) readPump() {
 	defer func() {
 		c.hub.Unsubscribe(c)
 		c.hub.voiceDisconnect(c)
+		auth.SetLastSeen(c.db, c.userID)
 		c.conn.Close()
 	}()
 	c.conn.SetReadLimit(maxMessageSize)
@@ -137,6 +139,7 @@ func (c *Client) writePump() {
 				return
 			}
 		case <-ticker.C:
+			auth.TouchLastSeen(c.db, c.userID)
 			c.conn.SetWriteDeadline(time.Now().Add(writeWait)) //nolint:errcheck
 			if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
 				return

@@ -3,6 +3,7 @@ package auth
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strings"
 )
@@ -13,6 +14,7 @@ func HandleRegister(db *sql.DB) http.HandlerFunc {
 		var req struct {
 			Login      string `json:"login"`
 			Email      string `json:"email"`
+			Name       string `json:"display_name"`
 			Password   string `json:"password"`
 			InviteCode string `json:"invite_code"`
 		}
@@ -25,14 +27,14 @@ func HandleRegister(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		user, err := RegisterUser(db, req.Login, req.Email, req.Password, req.InviteCode)
+		user, err := RegisterUserFull(db, req.Login, req.Email, req.Name, req.Password, req.InviteCode)
 		if err != nil {
 			switch {
 			case err == ErrInviteNotFound:
 				http.Error(w, "invalid or expired invite", http.StatusForbidden)
 			case err == ErrInviteUsed:
 				http.Error(w, "invite already used", http.StatusConflict)
-			case strings.Contains(err.Error(), "UNIQUE constraint failed"):
+			case err == ErrUserExists, strings.Contains(err.Error(), "UNIQUE constraint failed"):
 				http.Error(w, "user already exists", http.StatusConflict)
 			default:
 				http.Error(w, "internal server error", http.StatusInternalServerError)
@@ -108,6 +110,10 @@ func HandleCreateInvite(db *sql.DB) http.HandlerFunc {
 			return
 		}
 		invite, err := CreateInvite(db, user.ID)
+		if errors.Is(err, ErrInviteQuota) {
+			http.Error(w, "invite quota reached", http.StatusConflict)
+			return
+		}
 		if err != nil {
 			http.Error(w, "internal server error", http.StatusInternalServerError)
 			return

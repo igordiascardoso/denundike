@@ -4,11 +4,17 @@ import "time"
 
 // User represents an authenticated account.
 type User struct {
-	ID           string    `json:"id"`
-	Login        string    `json:"login"`
-	Email        string    `json:"email"`
-	PasswordHash string    `json:"-"`
-	CreatedAt    time.Time `json:"created_at"`
+	ID           string     `json:"id"`
+	Login        string     `json:"login"`
+	Email        string     `json:"email"`
+	PasswordHash string     `json:"-"`
+	CreatedAt    time.Time  `json:"created_at"`
+	DisplayName  string     `json:"display_name,omitempty"`
+	LastSeenAt   *time.Time `json:"last_seen_at,omitempty"`
+	HasRecovery  bool       `json:"has_recovery"`
+	Points       int        `json:"points"`
+	// RecoveryCode is only set once, right after signup; it is never stored.
+	RecoveryCode string `json:"recovery_code,omitempty"`
 }
 
 // Session ties a bearer token to a user with an expiry.

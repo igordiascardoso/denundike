@@ -109,7 +109,8 @@ func ListFriends(db *sql.DB, userID string) ([]FriendEntry, error) {
 			CASE WHEN f.requester_id = ? THEN f.addressee_id ELSE f.requester_id END AS other_id,
 			CASE WHEN f.requester_id = ? THEN 'sent' ELSE 'received' END AS direction,
 			u.login,
-			f.status
+			f.status,
+			u.last_seen_at
 		FROM friendships f
 		JOIN users u ON u.id = CASE WHEN f.requester_id = ? THEN f.addressee_id ELSE f.requester_id END
 		WHERE f.requester_id = ? OR f.addressee_id = ?
@@ -123,8 +124,13 @@ func ListFriends(db *sql.DB, userID string) ([]FriendEntry, error) {
 	var entries []FriendEntry
 	for rows.Next() {
 		var e FriendEntry
-		if err := rows.Scan(&e.ID, &e.UserID, &e.Direction, &e.Login, &e.Status); err != nil {
+		var seen sql.NullTime
+		if err := rows.Scan(&e.ID, &e.UserID, &e.Direction, &e.Login, &e.Status, &seen); err != nil {
 			return nil, err
+		}
+		if seen.Valid {
+			t := seen.Time
+			e.LastSeenAt = &t
 		}
 		entries = append(entries, e)
 	}

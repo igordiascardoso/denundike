@@ -53,11 +53,17 @@ func New(db *sql.DB, hub *ws.Hub) *chi.Mux {
 		r.Post("/register", auth.HandleRegister(db))
 		r.Post("/login", auth.HandleLogin(db))
 		r.Post("/logout", auth.HandleLogout(db))
+		r.Post("/recover", auth.HandleRecover(db))
+		r.With(auth.RequireAuth(db)).Post("/recovery-code", auth.HandleRegenerateRecovery(db))
+		r.With(auth.RequireAuth(db)).Post("/recovery-code/init", auth.HandleInitRecovery(db))
 		r.With(auth.RequireAuth(db)).Get("/me", auth.HandleMe())
 	})
 
 	r.With(auth.RequireAuth(db)).Post("/api/invites", auth.HandleCreateInvite(db))
+	r.With(auth.RequireAuth(db)).Get("/api/invites/mine", auth.HandleMyInvites(db))
 	r.Get("/api/invites/{code}", invite.HandleGetInfo(db))
+	r.With(auth.RequireAuth(db)).Get("/api/ranking", auth.HandleRanking(db))
+	r.With(auth.RequireAuth(db)).Get("/api/me/stats", auth.HandleMyStats(db))
 
 	r.Route("/api/friends", func(r chi.Router) {
 		r.Use(auth.RequireAuth(db))

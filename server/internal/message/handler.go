@@ -9,6 +9,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jemunje/denundike/internal/auth"
 	"github.com/jemunje/denundike/internal/channel"
+	"github.com/jemunje/denundike/internal/gamify"
 	"github.com/jemunje/denundike/internal/group"
 	"github.com/jemunje/denundike/internal/ws"
 )
@@ -54,6 +55,7 @@ func HandlePost(db *sql.DB, hub *ws.Hub) http.HandlerFunc {
 			return
 		}
 		msg.Login = user.Login
+		gamify.AwardFirstMessage(db, user.ID) //nolint:errcheck
 
 		// Broadcast to WebSocket subscribers.
 		event := map[string]any{
