@@ -1,12 +1,14 @@
-const { app, BrowserWindow, ipcMain, Menu } = require('electron');
+const { app, BrowserWindow, ipcMain, Menu, session } = require('electron');
 const path = require('path');
 const { autoUpdater } = require('electron-updater');
+const { setupMedia, registerMediaIpc } = require('./media');
+
+app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 
 let loginWin = null;
 let mainWin = null;
 let pendingUpdate = false;
 let pendingUpdateDownloaded = false;
-
 function createMainWindow() {
   mainWin = new BrowserWindow({
     width: 1280,
@@ -75,6 +77,8 @@ function createLoginWindow() {
 
 app.whenReady().then(() => {
   Menu.setApplicationMenu(null);
+  setupMedia(session.defaultSession);
+  registerMediaIpc();
   createLoginWindow();
   autoUpdater.checkForUpdatesAndNotify();
 });

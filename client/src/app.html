@@ -187,6 +187,38 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 .fr .acts{align-items:center}
 .fr .btn.sm{height:32px}
 .sel{appearance:none;width:100%}
+/* ── chamadas ── */
+.ch.vc .i{color:var(--dim)}.ch.vc.live{color:var(--accent);font-weight:600}.ch.vc.live .i{color:var(--accent)}
+.vpeople{display:flex;flex-direction:column;gap:3px;padding:0 0 6px 28px}
+.vp{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--muted)}
+.vp .av{width:20px;height:20px;font-size:9px}
+.vp.sp .av{box-shadow:0 0 0 2px var(--accent)}
+.callstage{display:none;flex-direction:column;flex:1;min-height:0;background:var(--bg0)}
+.app.incall .callstage{display:flex}.app.incall .browser{display:none}
+.callgrid{flex:1;min-height:0;overflow:auto;display:grid;gap:12px;padding:16px;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));grid-auto-rows:minmax(170px,1fr);scrollbar-width:thin;scrollbar-color:var(--bg4) transparent}
+.tile{position:relative;border-radius:var(--r-m);overflow:hidden;background:var(--bg2);border:2px solid var(--line);display:grid;place-items:center;min-height:0;transition:border-color .15s,box-shadow .15s}
+.tile.sp{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.tile .av{position:relative;z-index:0}
+.tile video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000;z-index:1}
+.tile.novideo video{opacity:0;pointer-events:none}
+.tile.self:not(.screen) video{transform:scaleX(-1)}
+.tile.screen{grid-column:1/-1;grid-row:span 2;order:-1}.tile.screen video{object-fit:contain}
+.tile .who{position:absolute;left:10px;bottom:10px;z-index:2;display:flex;align-items:center;gap:6px;background:rgba(0,0,0,.65);padding:4px 10px;border-radius:14px;font-size:12.5px;font-weight:600}
+.tile .who .i{color:var(--hot)}
+.callbar{display:flex;justify-content:center;gap:10px;padding:12px;border-top:1px solid var(--line);background:var(--bg1)}
+.cb{width:48px;height:48px;border-radius:50%;background:var(--bg3);display:grid;place-items:center;color:var(--text);border:1px solid var(--line2);transition:background .15s,transform .15s}
+.cb:hover{background:var(--bg4)}.cb:active{transform:scale(.93)}
+.cb.on{background:var(--accent);color:var(--accent-ink);border-color:transparent}
+.cb.off{background:var(--hot);color:#fff;border-color:transparent}
+.cb.leave{background:var(--hot);color:#fff;border-color:transparent;width:64px;border-radius:24px}
+.callmini{display:none;align-items:center;gap:8px;padding:8px 10px 8px 14px;background:var(--accent-soft);border-top:1px solid var(--line);color:var(--accent);font-size:12.5px;font-weight:600}
+.app.incall .callmini{display:flex}.callmini span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.srcgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;max-height:300px;overflow:auto}
+.src{padding:6px;border:2px solid var(--line2);border-radius:var(--r-s);background:var(--bg3);text-align:left}
+.src img{display:block;width:100%;aspect-ratio:16/10;object-fit:cover;border-radius:6px;background:#000}
+.src small{display:block;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;margin-top:4px;font-size:12px;color:var(--muted)}
+.src.on{border-color:var(--accent)}
+.chk{display:flex;gap:10px;align-items:flex-start;color:var(--muted);font-size:13px}.chk input{margin-top:3px;accent-color:var(--accent)}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
@@ -217,6 +249,9 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 <symbol id="sq" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1"/></symbol>
 <symbol id="clip" viewBox="0 0 24 24"><path d="M20 11 11.5 19.5a5 5 0 0 1-7-7L13 4a3.5 3.5 0 0 1 5 5l-8.5 8.5a2 2 0 0 1-3-3L14 7"/></symbol>
 <symbol id="reload" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.5-5.8M20 4v5h-5"/></symbol>
+<symbol id="cam" viewBox="0 0 24 24"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="M16 10l5-3v10l-5-3"/></symbol>
+<symbol id="camoff" viewBox="0 0 24 24"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="M16 10l5-3v10l-5-3M3 3l18 18"/></symbol>
+<symbol id="phone" viewBox="0 0 24 24"><path d="M3 14c5-5 13-5 18 0l-2.2 3-3.3-1.8V13c-2-.8-4-.8-6 0v2.2L5.2 17z"/></symbol>
 <symbol id="globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></symbol>
 </defs></svg>
 
@@ -263,6 +298,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
       <div class="chlist" id="chlist">
         <div class="empty-s" style="padding:30px 10px">Selecione um grupo.</div>
       </div>
+      <div class="callmini" id="callMini"><svg class="i sm"><use href="#mic"/></svg><span id="callMiniText">Em chamada</span><button class="ib" id="cmLeave" aria-label="Sair da chamada" title="Sair da chamada"><svg class="i"><use href="#phone"/></svg></button></div>
       <div class="me">
         <button class="meb" id="meBtn" aria-haspopup="menu" aria-expanded="false" aria-label="Abrir menu da conta">
           <span class="av c1" id="meAv">?<span class="st online" id="meSt"></span></span>
@@ -275,6 +311,16 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
     </aside>
 
     <main class="center" id="center">
+      <div class="callstage" id="callStage">
+        <div class="callgrid" id="callGrid" aria-live="polite"></div>
+        <div class="callbar" id="callBar">
+          <button class="cb" id="cbMic" aria-label="Microfone" title="Microfone"><svg class="i"><use href="#mic"/></svg></button>
+          <button class="cb" id="cbHp" aria-label="Silenciar o áudio da chamada" title="Fone"><svg class="i"><use href="#hp"/></svg></button>
+          <button class="cb" id="cbCam" aria-label="Câmera" title="Câmera"><svg class="i"><use href="#camoff"/></svg></button>
+          <button class="cb" id="cbScr" aria-label="Compartilhar tela" title="Compartilhar tela"><svg class="i"><use href="#scr"/></svg></button>
+          <button class="cb leave" id="cbLeave" aria-label="Sair da chamada" title="Sair da chamada"><svg class="i"><use href="#phone"/></svg></button>
+        </div>
+      </div>
       <div class="browser m-empty" id="browser">
         <div class="empty" id="empty">
           <div class="ring"><svg class="i" style="width:54px;height:54px;stroke-width:1.3"><use href="#scr"/></svg></div>
@@ -367,10 +413,21 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 
 <div class="ov" id="m-channel" hidden><div class="modal" role="dialog" aria-modal="true" aria-labelledby="t-ch">
   <button class="ib mx" data-close aria-label="Fechar"><svg class="i"><use href="#x"/></svg></button>
-  <div class="mh"><h2 id="t-ch">Criar canal de texto</h2><p>Um lugar para conversar sobre um assunto.</p></div>
+  <div class="mh"><h2 id="t-ch">Criar canal</h2><p>Um lugar para conversar por texto ou por voz e vídeo.</p></div>
   <div class="mb">
+    <label class="l">Tipo<select class="in sel" id="newChType"><option value="text">Texto</option><option value="voice">Voz e vídeo</option></select></label>
     <label class="l">Nome do canal<input class="in" id="newChName" placeholder="Ex.: filmes" maxlength="40" autocomplete="off"></label>
     <button class="btn pri" id="createChBtn" type="button">Criar canal</button>
+  </div>
+</div></div>
+
+<div class="ov" id="m-screen" hidden><div class="modal" role="dialog" aria-modal="true" aria-labelledby="t-scr">
+  <button class="ib mx" data-close aria-label="Fechar"><svg class="i"><use href="#x"/></svg></button>
+  <div class="mh"><h2 id="t-scr">Compartilhar tela</h2><p>Escolha a tela ou a janela que todo mundo da chamada vai ver.</p></div>
+  <div class="mb">
+    <div class="srcgrid" id="srcGrid"></div>
+    <label class="chk"><input type="checkbox" id="srcAudio"><span>Compartilhar também o som do computador. As vozes da chamada podem voltar como eco para os outros.</span></label>
+    <button class="btn pri" id="srcGo" type="button" disabled>Compartilhar</button>
   </div>
 </div></div>
 
@@ -402,6 +459,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
   </div>
 </div></div>
 
+<script src="js/call.js"></script>
 <script>
 /* ── utilidades ── */
 const $ = (s, r = document) => r.querySelector(s);
@@ -458,6 +516,7 @@ const SERVER = window.bridge.serverUrl;
 function forceLogout() {
   localStorage.removeItem('denundike_token');
   localStorage.removeItem('denundike_user');
+  try { call.leave(); } catch (_) {}
   try { window.bridge.ws.disconnect(); } catch (_) {}
   location.href = 'login.html';
 }
@@ -656,6 +715,7 @@ async function activateGroup(group) {
   $('#homeBtn').classList.remove('on');
   const channels = await api('GET', '/api/groups/' + group.id + '/channels');
   renderChannels(channels);
+  loadVoicePresence();
   const keep = sameGroup && activeChannel && channels.find(c => c.id === activeChannel.id);
   if (keep) {
     $$('[data-chid]').forEach(b => b.classList.toggle('on', b.dataset.chid === keep.id));
@@ -667,17 +727,20 @@ async function activateGroup(group) {
 }
 
 /* ── canais ── */
+const chanById = new Map(); // todos os canais já vistos (para nomes na barra de chamada)
 function renderChannels(channels) {
   const list = $('#chlist');
+  channels.forEach(c => chanById.set(c.id, c));
+  const texts = channels.filter(c => c.type !== 'voice');
+  const voices = channels.filter(c => c.type === 'voice');
   list.innerHTML =
     '<div class="chhd"><h3>Canais de texto</h3>' +
     '<button class="ib" id="addChBtn" aria-label="Criar canal" title="Criar canal">' + ic('plus') + '</button></div>';
   $('#addChBtn').onclick = e => openM('m-channel', e.currentTarget);
-  if (!channels.length) {
-    list.insertAdjacentHTML('beforeend', '<div class="empty-s" style="padding:20px 10px">Nenhum canal neste grupo. Crie o primeiro no +.</div>');
-    return;
+  if (!texts.length) {
+    list.insertAdjacentHTML('beforeend', '<div class="empty-s" style="padding:20px 10px">Nenhum canal de texto. Crie o primeiro no +.</div>');
   }
-  channels.forEach(ch => {
+  texts.forEach(ch => {
     const btn = document.createElement('button');
     btn.className = 'ch';
     btn.dataset.chid = ch.id;
@@ -685,6 +748,21 @@ function renderChannels(channels) {
     btn.onclick = () => activateChannel(ch).catch(fail);
     list.appendChild(btn);
   });
+  list.insertAdjacentHTML('beforeend', '<div class="chhd"><h3>Canais de voz</h3></div>');
+  voices.forEach(ch => {
+    const btn = document.createElement('button');
+    btn.className = 'ch vc';
+    btn.dataset.vcid = ch.id;
+    btn.title = 'Entrar na chamada';
+    btn.innerHTML = ic('mic') + esc(ch.name);
+    btn.onclick = () => joinVoice(ch);
+    list.appendChild(btn);
+    const people = document.createElement('div');
+    people.className = 'vpeople';
+    people.dataset.vpid = ch.id;
+    list.appendChild(people);
+  });
+  renderVoicePresence();
 }
 
 async function activateChannel(ch) {
@@ -717,14 +795,16 @@ function resetChat() {
 
 $('#createChBtn').onclick = e => run(e.currentTarget, async () => {
   if (!activeGroup) return toast('Escolha um grupo primeiro.', true);
-  const name = $('#newChName').value.trim().toLowerCase().replace(/\s+/g, '-');
+  const type = $('#newChType').value === 'voice' ? 'voice' : 'text';
+  let name = $('#newChName').value.trim();
+  if (type === 'text') name = name.toLowerCase().replace(/\s+/g, '-');
   if (!name) return toast('Digite um nome para o canal.', true);
-  const ch = await api('POST', '/api/groups/' + activeGroup.id + '/channels', { name, type: 'text' });
+  const ch = await api('POST', '/api/groups/' + activeGroup.id + '/channels', { name, type });
   closeM();
   $('#newChName').value = '';
-  toast('Canal #' + name + ' criado');
+  toast((type === 'voice' ? 'Canal de voz ' : 'Canal #') + name + ' criado');
   renderChannels(await api('GET', '/api/groups/' + activeGroup.id + '/channels'));
-  await activateChannel(ch);
+  if (type === 'text') await activateChannel(ch);
 });
 $('#newChName').addEventListener('keydown', e => { if (e.key === 'Enter') $('#createChBtn').click(); });
 
@@ -807,6 +887,16 @@ function connectWS() {
         toast('@' + ev.inviter + ' convidou você para "' + ev.group_name + '"');
         refreshSocial();
         break;
+      case 'voice_state': {
+        if (ev.users && ev.users.length) voicePresence.set(ev.channel_id, ev.users);
+        else voicePresence.delete(ev.channel_id);
+        renderVoicePresence();
+        break;
+      }
+      case 'voice_peers': case 'voice_joined': case 'voice_left':
+      case 'signal': case 'voice_media': case 'voice_error':
+        call.handleWS(ev);
+        break;
       case 'group_members':
         if (activeGroup && ev.group_id === activeGroup.id && !$('#mem').hidden) loadMembers();
         break;
@@ -820,6 +910,8 @@ function connectWS() {
   window.bridge.ws.onOpen(isReconnect => {
     $('#wsStatus').classList.remove('show');
     if (isReconnect) {
+      call.onWSReopen();
+      loadVoicePresence();
       refreshSocial();
       loadMessages().catch(() => {});
     }
@@ -1049,13 +1141,147 @@ $('#joinCode').addEventListener('keydown', e => { if (e.key === 'Enter') $('#joi
 
 /* ── logout ── */
 async function doLogout() {
+  call.leave();
   try { await api('POST', '/api/auth/logout'); } catch (_) {}
   forceLogout();
 }
 
-/* ── voz (Fase 2) ── */
-$('#micBtn').onclick = () => soon('O microfone e as chamadas de voz');
-$('#hpBtn').onclick  = () => soon('O áudio das chamadas');
+/* ── chamadas de voz, vídeo e tela ── */
+const voicePresence = new Map(); // channelId → [{user_id, login}]
+const call = new CallManager({
+  me: { id: USER ? USER.id : '', login: USER ? USER.login : '' },
+  send: obj => window.bridge.ws.send(obj),
+  getIce: async () => (await api('GET', '/api/ice')).iceServers,
+  onChange: () => renderCall(),
+  toast: (m, err) => toast(m, err),
+  pickScreen: pickScreenSource,
+});
+window.__call = call;
+
+async function joinVoice(ch) {
+  if (call.channelId === ch.id) return;
+  try { await call.join(ch.id); } catch (e) { fail(e); }
+}
+
+async function loadVoicePresence() {
+  if (!activeGroup) return;
+  try {
+    const rows = await api('GET', '/api/groups/' + activeGroup.id + '/voice');
+    for (const cid of [...voicePresence.keys()]) {
+      const c = chanById.get(cid);
+      if (c && c.group_id === activeGroup.id) voicePresence.delete(cid);
+    }
+    rows.forEach(r => voicePresence.set(r.channel_id, r.users));
+    renderVoicePresence();
+  } catch (_) { /* presença é só informativa */ }
+}
+
+function renderVoicePresence() {
+  $$('[data-vpid]').forEach(box => {
+    const users = voicePresence.get(box.dataset.vpid) || [];
+    const speaking = new Set();
+    if (call.channelId === box.dataset.vpid) {
+      if (call.speakingSelf && USER) speaking.add(USER.id);
+      call.peers.forEach(p => { if (p.speaking) speaking.add(p.id); });
+    }
+    box.innerHTML = users.map(u =>
+      `<div class="vp${speaking.has(u.user_id) ? ' sp' : ''}"><span class="av ${avColor(u.user_id)}">${esc(initials(u.login))}</span>${esc(u.login)}</div>`
+    ).join('');
+  });
+  $$('[data-vcid]').forEach(b => b.classList.toggle('live', b.dataset.vcid === call.channelId));
+}
+
+function setIcon(btn, name) { btn.querySelector('use').setAttribute('href', '#' + name); }
+function syncCallButtons() {
+  const m = call.muted, d = call.deafened;
+  [$('#micBtn'), $('#cbMic')].forEach(b => { b.classList.toggle('off', m); b.setAttribute('aria-pressed', m); setIcon(b, m ? 'micoff' : 'mic'); });
+  [$('#hpBtn'), $('#cbHp')].forEach(b => { b.classList.toggle('off', d); b.setAttribute('aria-pressed', d); });
+  $('#cbCam').classList.toggle('on', call.cameraOn); setIcon($('#cbCam'), call.cameraOn ? 'cam' : 'camoff');
+  $('#cbScr').classList.toggle('on', call.screenOn);
+}
+
+const tileEls = new Map();
+function buildTile(t) {
+  const el = document.createElement('div');
+  el.className = 'tile' + (t.self ? ' self' : '') + (t.screen ? ' screen' : '');
+  el.innerHTML = `<span class="av lg ${avColor(t.userId)}">${esc(initials(t.login))}</span><video autoplay playsinline></video><div class="who"><span class="wn"></span><span class="wi"></span></div>`;
+  return el;
+}
+function updateTile(el, t) {
+  const v = el.querySelector('video');
+  if (v.srcObject !== (t.stream || null)) { v.srcObject = t.stream || null; const pr = v.play(); if (pr && pr.catch) pr.catch(() => {}); }
+  v.muted = !!t.self || call.deafened;
+  el.classList.toggle('novideo', !t.hasVideo);
+  el.classList.toggle('sp', !!t.speaking);
+  el.dataset.state = t.state || '';
+  el.querySelector('.wn').textContent = (t.self ? 'Você' : '@' + t.login) + (t.screen ? ' · tela' : '');
+  const bits = [];
+  if (t.muted) bits.push(ic('micoff'));
+  if (!t.self && t.state && t.state !== 'connected') bits.push('<small>conectando…</small>');
+  el.querySelector('.wi').innerHTML = bits.join('');
+}
+
+function renderCall() {
+  $('#app').classList.toggle('incall', call.inCall);
+  syncCallButtons();
+  renderVoicePresence();
+  const grid = $('#callGrid');
+  if (!call.inCall) { grid.innerHTML = ''; tileEls.clear(); return; }
+  const ch = chanById.get(call.channelId);
+  $('#callMiniText').textContent = 'Em chamada · ' + (ch ? ch.name : 'voz');
+  const tiles = call.tiles();
+  const keep = new Set(tiles.map(t => t.key));
+  for (const [k, el] of tileEls) if (!keep.has(k)) { el.remove(); tileEls.delete(k); }
+  tiles.forEach(t => {
+    let el = tileEls.get(t.key);
+    if (!el) { el = buildTile(t); tileEls.set(t.key, el); grid.appendChild(el); }
+    updateTile(el, t);
+  });
+}
+
+function pickScreenSource() {
+  return new Promise(async resolve => {
+    let list;
+    try { list = await window.bridge.screen.sources(); }
+    catch (e) { fail(e); return resolve(null); }
+    if (!list.length) { toast('Nenhuma tela encontrada para compartilhar.', true); return resolve(null); }
+    if (window.__autoPickScreen) {
+      await window.bridge.screen.choose(list[0].id, false);
+      return resolve({ id: list[0].id, audio: false });
+    }
+    const grid = $('#srcGrid');
+    grid.innerHTML = '';
+    let sel = null, chosen = null;
+    $('#srcGo').disabled = true;
+    list.forEach(s => {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'src';
+      b.innerHTML = `<img alt="" src="${s.thumb || ''}"><small>${s.isScreen ? 'Tela inteira · ' : ''}${esc(s.name)}</small>`;
+      b.onclick = () => { sel = s; $$('.src', grid).forEach(x => x.classList.toggle('on', x === b)); $('#srcGo').disabled = false; };
+      grid.appendChild(b);
+    });
+    const m = $('#m-screen');
+    const obs = new MutationObserver(() => { if (m.hidden) { obs.disconnect(); resolve(chosen); } });
+    obs.observe(m, { attributes: true, attributeFilter: ['hidden'] });
+    openM('m-screen');
+    $('#srcGo').onclick = async () => {
+      if (!sel) return;
+      const audio = $('#srcAudio').checked;
+      try { await window.bridge.screen.choose(sel.id, audio); chosen = { id: sel.id, audio }; }
+      catch (e) { fail(e); }
+      closeM();
+    };
+  });
+}
+
+$('#micBtn').onclick = () => { call.setMuted(!call.muted); toast(call.muted ? 'Microfone desligado' : 'Microfone ligado'); };
+$('#hpBtn').onclick  = () => { call.setDeafened(!call.deafened); toast(call.deafened ? 'Áudio da chamada desligado' : 'Áudio da chamada ligado'); };
+$('#cbMic').onclick = () => call.setMuted(!call.muted);
+$('#cbHp').onclick  = () => call.setDeafened(!call.deafened);
+$('#cbCam').onclick = e => run(e.currentTarget, () => call.setCamera(!call.cameraOn));
+$('#cbScr').onclick = e => run(e.currentTarget, () => call.setScreen(!call.screenOn));
+$('#cbLeave').onclick = $('#cmLeave').onclick = () => call.leave();
+syncCallButtons();
 
 /* ── range sliders ── */
 function rng(r) { r.style.setProperty('--v', r.value + '%'); }

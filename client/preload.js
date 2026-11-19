@@ -35,6 +35,11 @@ contextBridge.exposeInMainWorld('bridge', {
     close: () => ipcRenderer.send('win-close'),
   },
 
+  screen: {
+    sources: () => ipcRenderer.invoke('screen-sources'),
+    choose: (id, audio) => ipcRenderer.invoke('screen-choose', { id, audio }),
+  },
+
   ws: {
     connect: (token) => wsClient.connect(BASE_URL, token),
     send: (obj) => wsClient.send(obj),
