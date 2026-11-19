@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/jemunje/denundike/internal/db"
 	"github.com/jemunje/denundike/internal/router"
@@ -22,11 +23,13 @@ func main() {
 	}
 	defer database.Close()
 
-	if code := os.Getenv("ADMIN_INVITE_CODE"); code != "" {
-		database.Exec( //nolint:errcheck
-			`INSERT OR IGNORE INTO invites (code, expires_at) VALUES (?, datetime('now', '+365 days'))`,
-			code,
-		)
+	for _, code := range strings.Split(os.Getenv("ADMIN_INVITE_CODE"), ",") {
+		if code = strings.TrimSpace(code); code != "" {
+			database.Exec( //nolint:errcheck
+				`INSERT OR IGNORE INTO invites (code, expires_at) VALUES (?, datetime('now', '+365 days'))`,
+				code,
+			)
+		}
 	}
 
 	hub := ws.NewHub()
