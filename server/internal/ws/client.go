@@ -8,6 +8,8 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/jemunje/denundike/internal/auth"
+	"github.com/jemunje/denundike/internal/channel"
+	"github.com/jemunje/denundike/internal/group"
 )
 
 const (
@@ -51,6 +53,19 @@ func HandleWS(db *sql.DB, hub *Hub) http.HandlerFunc {
 		channelID := r.URL.Query().Get("channel_id")
 		// channel_id is optional at connect time; clients can pass it to scope
 		// their subscription. For broadcast tests it must be set.
+
+		if channelID != "" {
+			groupID, err := channel.GroupIDForChannel(db, channelID)
+			if err != nil {
+				http.Error(w, "channel not found", http.StatusNotFound)
+				return
+			}
+			ok, err := group.IsMember(db, groupID, user.ID)
+			if err != nil || !ok {
+				http.Error(w, "forbidden", http.StatusForbidden)
+				return
+			}
+		}
 
 		conn, err := upgrader.Upgrade(w, r, nil)
 		if err != nil {

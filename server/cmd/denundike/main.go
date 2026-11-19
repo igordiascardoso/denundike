@@ -22,12 +22,24 @@ func main() {
 	}
 	defer database.Close()
 
+	if code := os.Getenv("ADMIN_INVITE_CODE"); code != "" {
+		database.Exec( //nolint:errcheck
+			`INSERT OR IGNORE INTO invites (code, expires_at) VALUES (?, datetime('now', '+365 days'))`,
+			code,
+		)
+	}
+
 	hub := ws.NewHub()
 	go hub.Run()
 
+	port := os.Getenv("PORT")
 	addr := os.Getenv("ADDR")
 	if addr == "" {
-		addr = ":8080"
+		if port != "" {
+			addr = ":" + port
+		} else {
+			addr = ":8080"
+		}
 	}
 
 	r := router.New(database, hub)
