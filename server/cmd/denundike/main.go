@@ -7,6 +7,7 @@ import (
 
 	"github.com/jemunje/denundike/internal/db"
 	"github.com/jemunje/denundike/internal/router"
+	"github.com/jemunje/denundike/internal/ws"
 )
 
 func main() {
@@ -21,12 +22,15 @@ func main() {
 	}
 	defer database.Close()
 
+	hub := ws.NewHub()
+	go hub.Run()
+
 	addr := os.Getenv("ADDR")
 	if addr == "" {
 		addr = ":8080"
 	}
 
-	r := router.New(database)
+	r := router.New(database, hub)
 	log.Printf("denundike listening on %s", addr)
 	if err := http.ListenAndServe(addr, r); err != nil {
 		log.Fatal(err)

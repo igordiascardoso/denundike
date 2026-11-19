@@ -61,7 +61,32 @@ func migrate(database *sql.DB) error {
 			created_at   DATETIME DEFAULT CURRENT_TIMESTAMP,
 			UNIQUE(requester_id, addressee_id)
 		)`,
-		// Tasks 3+ will append their CREATE TABLE IF NOT EXISTS here.
+		// --- groups, channels, messages (Task 3) ---
+		`CREATE TABLE IF NOT EXISTS groups (
+			id         TEXT PRIMARY KEY,
+			name       TEXT NOT NULL,
+			owner_id   TEXT REFERENCES users(id),
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		)`,
+		`CREATE TABLE IF NOT EXISTS group_members (
+			group_id TEXT REFERENCES groups(id),
+			user_id  TEXT REFERENCES users(id),
+			PRIMARY KEY(group_id, user_id)
+		)`,
+		`CREATE TABLE IF NOT EXISTS channels (
+			id         TEXT PRIMARY KEY,
+			group_id   TEXT REFERENCES groups(id),
+			name       TEXT NOT NULL,
+			type       TEXT NOT NULL DEFAULT 'text',
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		)`,
+		`CREATE TABLE IF NOT EXISTS messages (
+			id         TEXT PRIMARY KEY,
+			channel_id TEXT REFERENCES channels(id),
+			user_id    TEXT REFERENCES users(id),
+			text       TEXT NOT NULL,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		)`,
 	}
 
 	for _, stmt := range stmts {

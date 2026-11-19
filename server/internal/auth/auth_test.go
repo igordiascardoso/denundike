@@ -12,6 +12,7 @@ import (
 
 	"github.com/jemunje/denundike/internal/db"
 	"github.com/jemunje/denundike/internal/router"
+	"github.com/jemunje/denundike/internal/ws"
 )
 
 // setupTestServer creates an in-memory SQLite database and a test HTTP server.
@@ -23,7 +24,9 @@ func setupTestServer(t *testing.T) (*httptest.Server, *sql.DB) {
 	if err != nil {
 		t.Fatalf("db.Open: %v", err)
 	}
-	srv := httptest.NewServer(router.New(database))
+	hub := ws.NewHub()
+	go hub.Run()
+	srv := httptest.NewServer(router.New(database, hub))
 	t.Cleanup(func() {
 		srv.Close()
 		database.Close()

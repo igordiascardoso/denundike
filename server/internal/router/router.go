@@ -8,8 +8,12 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/jemunje/denundike/internal/auth"
+	"github.com/jemunje/denundike/internal/channel"
 	"github.com/jemunje/denundike/internal/friend"
+	"github.com/jemunje/denundike/internal/group"
 	"github.com/jemunje/denundike/internal/invite"
+	"github.com/jemunje/denundike/internal/message"
+	"github.com/jemunje/denundike/internal/ws"
 )
 
 // allowedOrigin returns true for origins that the Electron client and local dev
@@ -39,7 +43,7 @@ func corsMiddleware(next http.Handler) http.Handler {
 }
 
 // New builds and returns the application chi.Mux with all routes registered.
-func New(db *sql.DB) *chi.Mux {
+func New(db *sql.DB, hub *ws.Hub) *chi.Mux {
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
@@ -62,6 +66,25 @@ func New(db *sql.DB) *chi.Mux {
 		r.Post("/{id}/accept", friend.HandleAccept(db))
 		r.Post("/{id}/reject", friend.HandleReject(db))
 	})
+
+	// Groups & channels
+	r.Route("/api/groups", func(r chi.Router) {
+		r.Use(auth.RequireAuth(db))
+		r.Post("/", group.HandleCreate(db))
+		r.Get("/", group.HandleList(db))
+		r.Post("/{id}/channels", channel.HandleCreate(db))
+		r.Get("/{id}/channels", channel.HandleList(db))
+	})
+
+	// Channels (messages)
+	r.Route("/api/channels", func(r chi.Router) {
+		r.Use(auth.RequireAuth(db))
+		r.Post("/{id}/messages", message.HandlePost(db, hub))
+		r.Get("/{id}/messages", message.HandleList(db))
+	})
+
+	// WebSocket — authenticated by ?token= query param (Bearer not available on WS handshake)
+	r.Get("/ws", ws.HandleWS(db, hub))
 
 	return r
 }
