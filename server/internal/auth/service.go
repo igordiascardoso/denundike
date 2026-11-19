@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -46,12 +47,41 @@ func hashPassword(password string) (string, error) {
 }
 
 // verifyPassword checks password against an encoded argon2id hash.
+// It reads the m/t/p parameters stored in the hash string instead of using the
+// global constants, so verification stays correct even if the defaults change.
 func verifyPassword(password, encoded string) bool {
 	parts := strings.Split(encoded, "$")
-	// ["", "argon2id", "v=19", "m=...,t=...,p=...", "<salt>", "<hash>"]
+	// ["", "argon2id", "v=19", "m=M,t=T,p=P", "<salt_b64>", "<hash_b64>"]
 	if len(parts) != 6 || parts[1] != "argon2id" {
 		return false
 	}
+
+	// Parse stored parameters: "m=65536,t=1,p=2"
+	var storedMemory uint32
+	var storedTime uint32
+	var storedThreads uint8
+	for _, kv := range strings.Split(parts[3], ",") {
+		pair := strings.SplitN(kv, "=", 2)
+		if len(pair) != 2 {
+			return false
+		}
+		v, err := strconv.ParseUint(pair[1], 10, 32)
+		if err != nil {
+			return false
+		}
+		switch pair[0] {
+		case "m":
+			storedMemory = uint32(v)
+		case "t":
+			storedTime = uint32(v)
+		case "p":
+			storedThreads = uint8(v)
+		}
+	}
+	if storedMemory == 0 || storedTime == 0 || storedThreads == 0 {
+		return false
+	}
+
 	salt, err := base64.RawStdEncoding.DecodeString(parts[4])
 	if err != nil {
 		return false
@@ -60,7 +90,8 @@ func verifyPassword(password, encoded string) bool {
 	if err != nil {
 		return false
 	}
-	hash := argon2.IDKey([]byte(password), salt, argonTime, argonMemory, argonThreads, argonKeyLen)
+
+	hash := argon2.IDKey([]byte(password), salt, storedTime, storedMemory, storedThreads, uint32(len(expectedHash)))
 	if len(hash) != len(expectedHash) {
 		return false
 	}
@@ -72,28 +103,30 @@ func verifyPassword(password, encoded string) bool {
 }
 
 // RegisterUser creates a new user. invite_code must be valid, unexpired, and unused.
+//
+// Race safety: everything runs inside a transaction.
+//  1. INSERT the user (establishes the FK target for invites.used_by).
+//  2. Atomically claim the invite with UPDATE … WHERE used_by IS NULL — only
+//     one concurrent caller will get RowsAffected == 1; the other gets 0 and
+//     the transaction is rolled back (undoing the user INSERT as well).
 func RegisterUser(db *sql.DB, login, email, password, inviteCode string) (*User, error) {
-	var (
-		code      string
-		createdBy sql.NullString
-		usedBy    sql.NullString
-		expiresAt time.Time
-	)
-	err := db.QueryRow(
-		`SELECT code, created_by, used_by, expires_at FROM invites WHERE code = ?`,
-		inviteCode,
-	).Scan(&code, &createdBy, &usedBy, &expiresAt)
+	// Pre-flight: check invite exists and is not already used before hashing
+	// (cheap path so we don't do argon2 work for obviously invalid codes).
+	var preUsedBy sql.NullString
+	var preExpires time.Time
+	err := db.QueryRow(`SELECT used_by, expires_at FROM invites WHERE code = ?`, inviteCode).
+		Scan(&preUsedBy, &preExpires)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrInviteNotFound
 	}
 	if err != nil {
 		return nil, err
 	}
-	if expiresAt.Before(time.Now()) {
-		return nil, ErrInviteNotFound
-	}
-	if usedBy.Valid {
+	if preUsedBy.Valid {
 		return nil, ErrInviteUsed
+	}
+	if preExpires.Before(time.Now()) {
+		return nil, ErrInviteNotFound
 	}
 
 	hash, err := hashPassword(password)
@@ -101,20 +134,46 @@ func RegisterUser(db *sql.DB, login, email, password, inviteCode string) (*User,
 		return nil, err
 	}
 
+	tx, err := db.Begin()
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback() //nolint:errcheck — harmless after Commit
+
 	id := uuid.New().String()
-	_, err = db.Exec(
+	now := time.Now()
+
+	// 1. Insert the user first so the FK in invites.used_by can be satisfied.
+	if _, err = tx.Exec(
 		`INSERT INTO users (id, login, email, password_hash) VALUES (?, ?, ?, ?)`,
 		id, login, email, hash,
+	); err != nil {
+		return nil, err
+	}
+
+	// 2. Claim the invite atomically. The WHERE guard means only one winner.
+	res, err := tx.Exec(`
+		UPDATE invites
+		SET used_by = ?, used_at = ?
+		WHERE code = ?
+		  AND used_by IS NULL
+		  AND expires_at > ?`,
+		id, now, inviteCode, now,
 	)
 	if err != nil {
 		return nil, err
 	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return nil, err
+	}
+	if n == 0 {
+		// Another request won the race — rollback undoes the user INSERT too.
+		tx.Rollback() //nolint:errcheck
+		return nil, ErrInviteUsed
+	}
 
-	now := time.Now()
-	if _, err = db.Exec(
-		`UPDATE invites SET used_by = ?, used_at = ? WHERE code = ?`,
-		id, now, inviteCode,
-	); err != nil {
+	if err = tx.Commit(); err != nil {
 		return nil, err
 	}
 
