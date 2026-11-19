@@ -423,14 +423,14 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
         <div class="sstage" id="sStage" hidden>
           <div class="btool stool" id="sTool">
             <span class="bwho" id="sWho"></span>
-            <span class="volctl"><button type="button" class="ib" id="sMute" aria-label="Silenciar a tela" title="Silenciar só para mim"><svg class="i"><use href="#vol"/></svg></button><input type="range" id="sVol" min="0" max="100" value="100" aria-label="Volume da tela compartilhada" title="Volume (só para você)"></span>
+            <span class="volctl"><button type="button" class="ib" id="sMute" aria-label="Silenciar a tela" title="Silenciar só para mim"><svg class="i"><use href="#vol"/></svg></button><input type="range" id="sVol" min="0" max="300" value="100" aria-label="Volume da tela compartilhada" title="Volume (só para você)"></span>
             <button type="button" class="btn sm qbtn" id="sQ" title="Qualidade da transmissão"><svg class="i sm"><use href="#cog"/></svg>Qualidade</button>
             <button type="button" class="ib" id="sHide" aria-label="Recolher a tela" title="Recolher (só para você)"><svg class="i"><use href="#x"/></svg></button>
             <button type="button" class="ib" id="sFull" aria-label="Tela cheia" title="Tela cheia (F11 ou duplo clique; Esc sai)"><svg class="i"><use href="#fs"/></svg></button>
           </div>
           <div class="sview" id="sView" tabindex="0" aria-label="Tela compartilhada">
             <video id="sVideo" autoplay playsinline></video>
-            <div class="vovl" id="sOvl"><button type="button" class="ib" id="sMute2" aria-label="Silenciar a tela" title="Silenciar só para mim"><svg class="i"><use href="#vol"/></svg></button><input type="range" id="sVol2" min="0" max="100" value="100" aria-label="Volume da tela compartilhada" title="Volume (só para você)"></div>
+            <div class="vovl" id="sOvl"><button type="button" class="ib" id="sMute2" aria-label="Silenciar a tela" title="Silenciar só para mim"><svg class="i"><use href="#vol"/></svg></button><input type="range" id="sVol2" min="0" max="300" value="100" aria-label="Volume da tela compartilhada" title="Volume (só para você)"></div>
           </div>
         </div>
         <div class="bstage" id="bStage" hidden>
@@ -440,7 +440,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
             <button type="button" class="ib" id="bReload" aria-label="Recarregar" title="Recarregar"><svg class="i"><use href="#reload"/></svg></button>
             <input class="burl" id="bUrl" placeholder="Digite um endereço ou pesquise" autocomplete="off" spellcheck="false" aria-label="Endereço">
             <span class="bwho" id="bWho"></span>
-            <span class="volctl"><button type="button" class="ib" id="bMute" aria-label="Silenciar o navegador" title="Silenciar só para mim"><svg class="i"><use href="#vol"/></svg></button><input type="range" id="bVol" min="0" max="100" value="100" aria-label="Volume do navegador compartilhado" title="Volume (só para você)"></span>
+            <span class="volctl"><button type="button" class="ib" id="bMute" aria-label="Silenciar o navegador" title="Silenciar só para mim"><svg class="i"><use href="#vol"/></svg></button><input type="range" id="bVol" min="0" max="300" value="100" aria-label="Volume do navegador compartilhado" title="Volume (só para você)"></span>
             <button type="button" class="btn sm qbtn" id="bQ" title="Qualidade da transmissão"><svg class="i sm"><use href="#cog"/></svg>Qualidade</button>
             <button type="button" class="ib" id="bHide" aria-label="Recolher o navegador" title="Recolher (a sessão continua para os outros)"><svg class="i"><use href="#x"/></svg></button>
             <button type="button" class="ib" id="bFull" aria-label="Tela cheia" title="Tela cheia (F ou duplo clique; Esc sai)"><svg class="i"><use href="#fs"/></svg></button>
@@ -538,9 +538,18 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 <div class="pop" id="ctxMenu" role="menu" hidden style="min-width:220px"></div>
 <div class="pop" id="volPop" hidden style="min-width:240px">
   <div class="volhd"><b id="volTitle">Volume</b></div>
-  <div class="volrow"><button type="button" class="ib" id="volMute" aria-label="Silenciar"><svg class="i"><use href="#vol"/></svg></button><input type="range" id="volRange" min="0" max="100" value="100" aria-label="Volume"><small id="volPct">100%</small></div>
+  <div class="volrow"><button type="button" class="ib" id="volMute" aria-label="Silenciar"><svg class="i"><use href="#vol"/></svg></button><input type="range" id="volRange" min="0" max="300" value="100" aria-label="Volume"><small id="volPct">100%</small></div>
   <small class="volnote">Só você ouve a diferença. Fica salvo neste computador.</small>
 </div>
+
+<!-- modal: download do Chrome -->
+<div class="ov" id="m-chromedl" hidden style="pointer-events:none"><div class="modal" role="dialog" aria-modal="true" style="pointer-events:auto;max-width:380px">
+  <div class="mh" style="padding-bottom:8px"><h2>Preparando o navegador</h2><p>O Google Chrome está sendo instalado para usar o navegador compartilhado.</p></div>
+  <div class="mb" style="padding-top:8px">
+    <progress id="dlChromeBar" max="100" value="0" style="width:100%;height:8px;border-radius:4px;accent-color:var(--accent)"></progress>
+    <small id="dlChromePct" style="display:block;margin-top:6px;color:var(--muted)">Baixando… 0%</small>
+  </div>
+</div></div>
 
 <!-- modais -->
 <div class="ov" id="m-invite" hidden><div class="modal" role="dialog" aria-modal="true" aria-labelledby="t-inv">

@@ -3,6 +3,9 @@ const { spawn, execFile } = require('child_process');
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
+const https = require('https');
+const http = require('http');
+const os = require('os');
 
 /* Navegador compartilhado — lado do anfitrião.
    Lança um Chrome real (com Widevine) num perfil próprio e o controla pelo
@@ -24,41 +27,139 @@ function chromePaths() {
   return c;
 }
 
-// O Edge vem com o Windows, também tem Widevine e fala o mesmo protocolo DevTools.
-function edgePaths() {
-  const c = [];
-  if (process.platform === 'win32') {
-    const bases = [process.env['ProgramFiles(x86)'], process.env.ProgramFiles, process.env.LOCALAPPDATA].filter(Boolean);
-    for (const base of bases) c.push(path.join(base, 'Microsoft', 'Edge', 'Application', 'msedge.exe'));
-    // instalações novas do Edge ficam em EdgeCore\<versão>\msedge.exe
-    for (const base of bases) {
-      const core = path.join(base, 'Microsoft', 'EdgeCore');
-      let vers = [];
-      try { vers = fs.readdirSync(core).filter((d) => /^\d+(\.\d+)+$/.test(d)); } catch (_) { /* sem EdgeCore */ }
-      vers.sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
-      for (const v of vers) c.push(path.join(core, v, 'msedge.exe'));
-    }
-  } else if (process.platform === 'darwin') {
-    c.push('/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge');
-  } else {
-    c.push('/usr/bin/microsoft-edge-stable', '/usr/bin/microsoft-edge', '/opt/microsoft/msedge/msedge');
-  }
-  return c;
+function linuxLocalChromePath() {
+  return path.join(app.getPath('userData'), 'chrome', 'opt', 'google', 'chrome', 'google-chrome');
 }
 
 function findChrome() {
   if (process.env.DENUNDIKE_CHROME && fs.existsSync(process.env.DENUNDIKE_CHROME)) return process.env.DENUNDIKE_CHROME;
+  if (process.platform === 'linux') {
+    const local = linuxLocalChromePath();
+    if (fs.existsSync(local)) return local;
+  }
   return chromePaths().find((p) => fs.existsSync(p)) || null;
 }
 
-// Chrome primeiro; sem ele, Edge. DENUNDIKE_BROWSER=edge força o Edge (testes).
 function findBrowser() {
-  const forced = process.env.DENUNDIKE_BROWSER;
-  const chrome = forced === 'edge' ? null : findChrome();
+  const chrome = findChrome();
   if (chrome) return { path: chrome, kind: 'chrome', name: 'Google Chrome' };
-  const edge = edgePaths().find((p) => fs.existsSync(p));
-  if (edge) return { path: edge, kind: 'edge', name: 'Microsoft Edge' };
   return null;
+}
+
+/* ── download helpers ── */
+function downloadFile(url, dest, onProgress) {
+  return new Promise((res, rej) => {
+    const file = fs.createWriteStream(dest);
+    let total = 0, got = 0;
+    function request(u, hops) {
+      if (hops > 10) { file.close(); return rej(new Error('too many redirects')); }
+      const mod = u.startsWith('https') ? https : http;
+      mod.get(u, { headers: { 'User-Agent': 'Denundike/1.0' } }, (resp) => {
+        if (resp.statusCode >= 300 && resp.statusCode < 400 && resp.headers.location) {
+          resp.resume(); return request(resp.headers.location, hops + 1);
+        }
+        if (resp.statusCode !== 200) { resp.resume(); file.close(); return rej(new Error('HTTP ' + resp.statusCode)); }
+        total = parseInt(resp.headers['content-length'] || '0', 10);
+        resp.on('data', (chunk) => { got += chunk.length; if (total && onProgress) onProgress(Math.round(got / total * 100)); });
+        resp.pipe(file);
+        file.on('finish', () => file.close(() => res()));
+        file.on('error', (e) => { file.close(); rej(e); });
+        resp.on('error', (e) => { file.close(); rej(e); });
+      }).on('error', (e) => { file.close(); rej(e); });
+    }
+    request(url, 0);
+  });
+}
+
+async function extractDeb(debPath, destDir) {
+  fs.mkdirSync(destDir, { recursive: true });
+  try {
+    await new Promise((res, rej) => { execFile('dpkg-deb', ['-x', debPath, destDir], (err) => err ? rej(err) : res()); });
+    return;
+  } catch (_) {}
+  const arDir = debPath + '-ar';
+  fs.mkdirSync(arDir, { recursive: true });
+  await new Promise((res, rej) => { execFile('ar', ['x', debPath], { cwd: arDir }, (err) => err ? rej(err) : res()); });
+  const files = fs.readdirSync(arDir);
+  const dataTar = files.find((f) => f.startsWith('data.tar'));
+  if (!dataTar) throw new Error('no data.tar in deb');
+  await new Promise((res, rej) => { execFile('tar', ['xf', path.join(arDir, dataTar), '-C', destDir], (err) => err ? rej(err) : res()); });
+  try { fs.rmSync(arDir, { recursive: true, force: true }); } catch (_) {}
+}
+
+async function extractZip(zipPath, destDir) {
+  fs.mkdirSync(destDir, { recursive: true });
+  if (process.platform === 'win32') {
+    await new Promise((res, rej) => {
+      execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command',
+        `Expand-Archive -Force -Path "${zipPath}" -DestinationPath "${destDir}"`
+      ], (err) => err ? rej(err) : res());
+    });
+  } else {
+    try {
+      await new Promise((res, rej) => { execFile('unzip', ['-o', zipPath, '-d', destDir], (err) => err ? rej(err) : res()); });
+    } catch (_) {
+      await new Promise((res, rej) => { execFile('python3', ['-m', 'zipfile', '-e', zipPath, destDir], (err) => err ? rej(err) : res()); });
+    }
+  }
+}
+
+/* ── AdGuard ── */
+const ADGUARD_API = 'https://api.github.com/repos/AdguardTeam/AdguardBrowserExtension/releases/latest';
+
+function adguardDir() { return path.join(app.getPath('userData'), 'adguard'); }
+function adguardVerFile() { return path.join(app.getPath('userData'), 'adguard-version'); }
+
+async function downloadAdGuard() {
+  try {
+    const info = await new Promise((res, rej) => {
+      https.get(ADGUARD_API, { headers: { 'User-Agent': 'Denundike/1.0' } }, (resp) => {
+        let d = ''; resp.on('data', (c) => d += c);
+        resp.on('end', () => { try { res(JSON.parse(d)); } catch (e) { rej(e); } });
+        resp.on('error', rej);
+      }).on('error', rej);
+    });
+    const tag = info.tag_name;
+    let cur = ''; try { cur = fs.readFileSync(adguardVerFile(), 'utf8').trim(); } catch (_) {}
+    if (cur === tag && fs.existsSync(path.join(adguardDir(), 'manifest.json'))) return;
+    const asset = info.assets && info.assets.find((a) => a.name && /^chrome_AdguardExtension.*\.zip$/.test(a.name));
+    if (!asset) return;
+    const tmpZip = path.join(os.tmpdir(), 'adguard-' + Date.now() + '.zip');
+    const tmpExt = tmpZip + '-ext';
+    await downloadFile(asset.browser_download_url, tmpZip);
+    await extractZip(tmpZip, tmpExt);
+    let extRoot = tmpExt;
+    const entries = fs.readdirSync(tmpExt);
+    if (entries.length === 1) { const sub = path.join(tmpExt, entries[0]); if (fs.statSync(sub).isDirectory()) extRoot = sub; }
+    const dest = adguardDir();
+    try { fs.rmSync(dest, { recursive: true, force: true }); } catch (_) {}
+    fs.renameSync(extRoot, dest);
+    fs.writeFileSync(adguardVerFile(), tag);
+    try { fs.unlinkSync(tmpZip); } catch (_) {}
+    try { if (tmpExt !== extRoot) fs.rmSync(tmpExt, { recursive: true, force: true }); } catch (_) {}
+  } catch (_) { /* silent — AdGuard é opcional */ }
+}
+
+/* ── download do Chrome ── */
+async function downloadChrome(onProgress) {
+  if (process.platform === 'win32') {
+    const tmpExe = path.join(os.tmpdir(), 'chrome_setup_' + Date.now() + '.exe');
+    await downloadFile('https://dl.google.com/chrome/install/standalonesetup64.exe', tmpExe, onProgress);
+    await new Promise((res, rej) => {
+      execFile(tmpExe, [], (err) => { try { fs.unlinkSync(tmpExe); } catch (_) {} err ? rej(err) : res(); });
+    });
+  } else if (process.platform === 'linux') {
+    const tmpDeb = path.join(os.tmpdir(), 'chrome_' + Date.now() + '.deb');
+    await downloadFile('https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb', tmpDeb, onProgress);
+    const destDir = path.join(app.getPath('userData'), 'chrome');
+    try { fs.rmSync(destDir, { recursive: true, force: true }); } catch (_) {}
+    await extractDeb(tmpDeb, destDir);
+    try { fs.unlinkSync(tmpDeb); } catch (_) {}
+    const bin = linuxLocalChromePath();
+    if (fs.existsSync(bin)) try { fs.chmodSync(bin, 0o755); } catch (_) {}
+  } else {
+    throw new Error('unsupported-platform');
+  }
 }
 
 function isWebUrl(u) {
@@ -150,7 +251,7 @@ async function startSession(sender, url) {
   if (url && !isWebUrl(url)) return { error: 'bad-url' };
 
   const token = 'DNDK-' + crypto.randomBytes(5).toString('hex');
-  const profileDir = path.join(app.getPath('userData'), found.kind === 'edge' ? 'edge-profile' : 'chrome-profile');
+  const profileDir = path.join(app.getPath('userData'), 'chrome-profile');
   fs.mkdirSync(profileDir, { recursive: true });
   try { fs.unlinkSync(path.join(profileDir, 'DevToolsActivePort')); } catch (_) {}
 
@@ -168,6 +269,13 @@ async function startSession(sender, url) {
     '--disable-backgrounding-occluded-windows', '--disable-renderer-backgrounding',
     '--disable-background-timer-throttling',
   ];
+  const adg = adguardDir();
+  if (fs.existsSync(path.join(adg, 'manifest.json'))) {
+    args.push('--load-extension=' + adg, '--disable-extensions-except=' + adg);
+  }
+  if (process.platform === 'linux') {
+    args.push('--enable-audio-output-capture');
+  }
   const proc = spawn(chrome, args, { stdio: 'ignore', windowsHide: false });
   const s = { proc, sender, token, cdp: null, sessionId: null, targetId: null, windowId: null, vp: null, vpAt: 0, buttons: 0, lastDown: {}, size: '', owner: null, ownerT: 0, queue: [], moving: false };
   cur = s;
@@ -332,6 +440,14 @@ async function inputEvent(s, m) {
 function registerBrowserIpc() {
   ipcMain.handle('browser-available', () => !!findBrowser());
   ipcMain.handle('browser-info', () => { const b = findBrowser(); return b ? { ok: true, name: b.name } : { ok: false, name: null }; });
+  ipcMain.handle('browser-download-start', async (e) => {
+    try {
+      await downloadChrome((pct) => { if (!e.sender.isDestroyed()) e.sender.send('browser-download-progress', pct); });
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+  });
   ipcMain.handle('browser-start', (e, url) => startSession(e.sender, url));
   ipcMain.handle('browser-stop', () => stopSession(false));
   ipcMain.handle('browser-nav', async (_e, n) => {
@@ -359,6 +475,9 @@ function registerBrowserIpc() {
     try { await cur.cdp.send('Runtime.evaluate', { expression: expr }, cur.sessionId); return true; } catch (_) { return false; }
   });
   app.on('before-quit', () => { stopSession(false); });
+  // AdGuard: baixa na inicialização e atualiza a cada hora
+  downloadAdGuard().catch(() => {});
+  setInterval(() => downloadAdGuard().catch(() => {}), 3600 * 1000);
 }
 
 module.exports = { registerBrowserIpc, findChrome, findBrowser, isWebUrl, startSession, stopSession, navigate, inputEvent, route, getCurrent: () => cur };

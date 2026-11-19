@@ -2,13 +2,43 @@
 (function () {
   'use strict';
 
+  /* ── GainNode: amplificação acima de 100% ── */
+  let _audioCtx = null;
+  const _gainMap = new WeakMap();
+  function _getGain(el) {
+    if (_gainMap.has(el)) return _gainMap.get(el);
+    if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const src = _audioCtx.createMediaElementSource(el);
+    const gain = _audioCtx.createGain();
+    src.connect(gain);
+    gain.connect(_audioCtx.destination);
+    _gainMap.set(el, gain);
+    return gain;
+  }
+  function applyVolToEl(el, vol, muted) {
+    const eff = muted ? 0 : Math.max(0, vol);
+    if (eff === 0) {
+      el.muted = true;
+      if (_gainMap.has(el)) _gainMap.get(el).gain.value = 0;
+      return;
+    }
+    el.muted = false;
+    if (eff > 1 || _gainMap.has(el)) {
+      const g = _getGain(el);
+      g.gain.value = eff;
+      el.volume = 1;
+    } else {
+      el.volume = eff;
+    }
+  }
+
   /* ── volume individual (só neste computador) ── */
   const VKEY = 'dk_vol';
   let vols = {};
   try { vols = JSON.parse(localStorage.getItem(VKEY) || '{}') || {}; } catch (_) { vols = {}; }
   const getVol = (k) => {
     const x = vols[k];
-    return { v: x && typeof x.v === 'number' ? Math.min(1, Math.max(0, x.v)) : 1, m: !!(x && x.m) };
+    return { v: x && typeof x.v === 'number' ? Math.min(3, Math.max(0, x.v)) : 1, m: !!(x && x.m) };
   };
   function setVol(k, patch) {
     vols[k] = Object.assign(getVol(k), patch);
@@ -23,9 +53,8 @@
   window.applyTileVolume = function (v, t) {
     if (t.self) { v.muted = true; return; }
     const g = getVol((t.screen ? 's:' : 'u:') + t.userId);
-    v.volume = g.v;
-    const dupe = t.screen && centerKey === 'screen:' + t.userId; // já toca no centro: não dobra o som
-    v.muted = call.deafened || g.m || dupe;
+    const dupe = t.screen && centerKey === 'screen:' + t.userId;
+    applyVolToEl(v, g.v, call.deafened || g.m || dupe);
   };
 
   function syncSlider(range, btn, g) {
@@ -37,15 +66,13 @@
   function applyCenterVolumes() {
     const gb = getVol('browser');
     const bv = $('#bVideo');
-    bv.volume = gb.v;
-    bv.muted = !!(bshare && bshare.isHost) || call.deafened || gb.m;
+    applyVolToEl(bv, gb.v, !!(bshare && bshare.isHost) || call.deafened || gb.m);
     syncSlider($('#bVol'), $('#bMute'), gb);
     if (centerKey && centerKey.startsWith('screen:')) {
       const uid = centerKey.slice(7);
       const g = getVol('s:' + uid);
       const sv = $('#sVideo');
-      sv.volume = g.v;
-      sv.muted = uid === USER.id || call.deafened || g.m;
+      applyVolToEl(sv, g.v, uid === USER.id || call.deafened || g.m);
       syncSlider($('#sVol'), $('#sMute'), g);
       syncSlider($('#sVol2'), $('#sMute2'), g);
     }

@@ -43,6 +43,9 @@
           const t = this.local && this.local.out && this.local.out.getVideoTracks()[0];
           if (t) t.contentHint = m ? 'motion' : 'detail';
         });
+        window.bridge.browser.onDownloadProgress((pct) => {
+          if (this._downloading) this._setDlProgress(pct);
+        });
       }
     }
 
@@ -67,8 +70,7 @@
       if (this.starting) return;
       const info = await window.bridge.browser.info();
       if (!info.ok) {
-        this.o.toast('Para abrir o navegador compartilhado é preciso ter o Google Chrome (ou o Microsoft Edge) instalado neste computador.', true,
-          { label: 'Baixar o Chrome', url: 'https://www.google.com/chrome/' });
+        this._downloadAndOpen();
         return;
       }
       if (this.o.askQuality && !(await this.o.askQuality())) return;
@@ -79,6 +81,32 @@
     stop() {
       if (this.isHost || this.local) this._sendCall('browser_stop');
       this._stopLocal();
+    }
+
+    async _downloadAndOpen() {
+      if (this._downloading) return;
+      this._downloading = true;
+      this._setDlProgress(0);
+      const m = $('#m-chromedl');
+      if (m) m.hidden = false;
+      try {
+        const r = await window.bridge.browser.download();
+        if (m) m.hidden = true;
+        this._downloading = false;
+        if (!r || !r.ok) throw new Error((r && r.error) || 'falha');
+        this.toggle();
+      } catch (_) {
+        if (m) m.hidden = true;
+        this._downloading = false;
+        this.o.toast('Não foi possível baixar o Chrome. Verifique sua conexão e tente novamente.', true);
+      }
+    }
+
+    _setDlProgress(pct) {
+      const bar = document.getElementById('dlChromeBar');
+      const txt = document.getElementById('dlChromePct');
+      if (bar) bar.value = pct;
+      if (txt) txt.textContent = pct < 100 ? 'Baixando… ' + pct + '%' : 'Instalando…';
     }
 
     /** recolhe o painel só para mim; a sessão continua para os outros */
@@ -155,7 +183,7 @@
       try {
         const r = await window.bridge.browser.start(null);
         if (!this.local) return;
-        if (r.error === 'no-chrome') return fail('Não encontrei o Google Chrome nem o Microsoft Edge neste computador.');
+        if (r.error === 'no-chrome') return fail('Não foi possível iniciar o Chrome. Reinicie o app e tente novamente.');
         if (r.error) return fail('Não consegui abrir o navegador (' + r.error + ').');
         await window.bridge.screen.choose(r.sourceId, true);
         let raw;
