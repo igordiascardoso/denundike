@@ -17,6 +17,8 @@ type Hub struct {
 	broadcast  chan channelMessage
 
 	userBroadcast chan userMessage
+
+	voice *voiceState
 }
 
 type userMessage struct {
@@ -39,6 +41,7 @@ func NewHub() *Hub {
 		broadcast:  make(chan channelMessage, 256),
 
 		userBroadcast: make(chan userMessage, 256),
+		voice:         newVoiceState(),
 	}
 }
 

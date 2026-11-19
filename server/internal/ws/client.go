@@ -16,7 +16,7 @@ const (
 	writeWait      = 10 * time.Second
 	pongWait       = 60 * time.Second
 	pingPeriod     = (pongWait * 9) / 10
-	maxMessageSize = 4096
+	maxMessageSize = 65536
 )
 
 var upgrader = websocket.Upgrader{
@@ -33,6 +33,8 @@ type Client struct {
 	send      chan []byte
 	channelID string
 	userID    string
+	login     string
+	db        *sql.DB
 }
 
 // HandleWS upgrades the HTTP connection to WebSocket after authenticating the
@@ -79,6 +81,8 @@ func HandleWS(db *sql.DB, hub *Hub) http.HandlerFunc {
 			send:      make(chan []byte, 256),
 			channelID: channelID,
 			userID:    user.ID,
+			login:     user.Login,
+			db:        db,
 		}
 		hub.Subscribe(c)
 
@@ -92,6 +96,7 @@ func HandleWS(db *sql.DB, hub *Hub) http.HandlerFunc {
 func (c *Client) readPump() {
 	defer func() {
 		c.hub.Unsubscribe(c)
+		c.hub.voiceDisconnect(c)
 		c.conn.Close()
 	}()
 	c.conn.SetReadLimit(maxMessageSize)
@@ -101,10 +106,11 @@ func (c *Client) readPump() {
 		return nil
 	})
 	for {
-		_, _, err := c.conn.ReadMessage()
+		_, raw, err := c.conn.ReadMessage()
 		if err != nil {
 			break
 		}
+		c.handleFrame(raw)
 	}
 }
 

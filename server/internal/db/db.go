@@ -104,5 +104,12 @@ func migrate(database *sql.DB) error {
 			return err
 		}
 	}
-	return nil
+
+	// Every group gets one voice room; backfills groups created before voice existed.
+	_, err := database.Exec(`
+		INSERT INTO channels (id, group_id, name, type, created_at)
+		SELECT lower(hex(randomblob(16))), g.id, 'Sala de voz', 'voice', CURRENT_TIMESTAMP
+		FROM groups g
+		WHERE NOT EXISTS (SELECT 1 FROM channels c WHERE c.group_id = g.id AND c.type = 'voice')`)
+	return err
 }

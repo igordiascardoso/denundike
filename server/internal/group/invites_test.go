@@ -95,9 +95,9 @@ func TestSocialFlow(t *testing.T) {
 		t.Fatalf("invite non-friend: want 403, got %d", r.StatusCode)
 	}
 
-	// New group comes with a default channel.
+	// New group comes with a text channel and a voice room.
 	chans := decodeList(t, doGet(t, srv, "/api/groups/"+gid+"/channels", aTok))
-	if len(chans) != 1 || chans[0]["name"] != "geral" {
+	if len(chans) != 2 || chans[0]["name"] != "geral" || chans[1]["type"] != "voice" {
 		t.Fatalf("default channel missing: %v", chans)
 	}
 

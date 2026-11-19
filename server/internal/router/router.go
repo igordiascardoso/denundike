@@ -78,6 +78,7 @@ func New(db *sql.DB, hub *ws.Hub) *chi.Mux {
 		r.Post("/{id}/invite-friend", group.HandleInviteFriend(db, hub))
 		r.Post("/{id}/channels", channel.HandleCreate(db))
 		r.Get("/{id}/channels", channel.HandleList(db))
+		r.Get("/{id}/voice", ws.HandleVoiceList(db, hub))
 	})
 
 	// Direct group invitations received by the caller
@@ -94,6 +95,8 @@ func New(db *sql.DB, hub *ws.Hub) *chi.Mux {
 		r.Post("/{id}/messages", message.HandlePost(db, hub))
 		r.Get("/{id}/messages", message.HandleList(db))
 	})
+
+	r.With(auth.RequireAuth(db)).Get("/api/ice", ws.HandleICE())
 
 	// WebSocket — authenticated by ?token= query param (Bearer not available on WS handshake)
 	r.Get("/ws", ws.HandleWS(db, hub))

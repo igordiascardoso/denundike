@@ -35,6 +35,11 @@ func HandleCreate(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
+		if body.Type != "" && body.Type != "text" && body.Type != "voice" {
+			http.Error(w, "invalid channel type", http.StatusBadRequest)
+			return
+		}
+
 		c, err := Create(db, groupID, body.Name, body.Type)
 		if err != nil {
 			http.Error(w, "internal error", http.StatusInternalServerError)
