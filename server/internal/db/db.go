@@ -87,6 +87,16 @@ func migrate(database *sql.DB) error {
 			text       TEXT NOT NULL,
 			created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 		)`,
+		`CREATE TABLE IF NOT EXISTS group_invites (
+			id         TEXT PRIMARY KEY,
+			group_id   TEXT NOT NULL REFERENCES groups(id),
+			inviter_id TEXT NOT NULL REFERENCES users(id),
+			invitee_id TEXT REFERENCES users(id),
+			code       TEXT UNIQUE,
+			status     TEXT NOT NULL DEFAULT 'pending',
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			expires_at DATETIME
+		)`,
 	}
 
 	for _, stmt := range stmts {

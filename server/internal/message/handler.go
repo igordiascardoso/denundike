@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jemunje/denundike/internal/auth"
@@ -31,18 +32,28 @@ func HandlePost(db *sql.DB, hub *ws.Hub) http.HandlerFunc {
 		}
 
 		var body struct {
-			Text string `json:"text"`
+			Text    string `json:"text"`
+			Content string `json:"content"`
 		}
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Text == "" {
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			http.Error(w, "text required", http.StatusBadRequest)
+			return
+		}
+		text := strings.TrimSpace(body.Text)
+		if text == "" {
+			text = strings.TrimSpace(body.Content)
+		}
+		if text == "" {
 			http.Error(w, "text required", http.StatusBadRequest)
 			return
 		}
 
-		msg, err := Post(db, channelID, user.ID, body.Text)
+		msg, err := Post(db, channelID, user.ID, text)
 		if err != nil {
 			http.Error(w, "internal error", http.StatusInternalServerError)
 			return
 		}
+		msg.Login = user.Login
 
 		// Broadcast to WebSocket subscribers.
 		event := map[string]any{
@@ -50,8 +61,8 @@ func HandlePost(db *sql.DB, hub *ws.Hub) http.HandlerFunc {
 			"channel_id": channelID,
 			"message":    msg,
 		}
-		if data, err := json.Marshal(event); err == nil {
-			hub.BroadcastToChannel(channelID, data)
+		if members, err := group.MemberIDs(db, groupID); err == nil {
+			hub.NotifyUsers(members, event)
 		}
 
 		w.Header().Set("Content-Type", "application/json")

@@ -62,8 +62,8 @@ func New(db *sql.DB, hub *ws.Hub) *chi.Mux {
 	r.Route("/api/friends", func(r chi.Router) {
 		r.Use(auth.RequireAuth(db))
 		r.Get("/", friend.HandleList(db))
-		r.Post("/request", friend.HandleRequest(db))
-		r.Post("/{id}/accept", friend.HandleAccept(db))
+		r.Post("/request", friend.HandleRequest(db, hub))
+		r.Post("/{id}/accept", friend.HandleAccept(db, hub))
 		r.Post("/{id}/reject", friend.HandleReject(db))
 	})
 
@@ -72,8 +72,20 @@ func New(db *sql.DB, hub *ws.Hub) *chi.Mux {
 		r.Use(auth.RequireAuth(db))
 		r.Post("/", group.HandleCreate(db))
 		r.Get("/", group.HandleList(db))
+		r.Post("/join", group.HandleJoin(db, hub))
+		r.Get("/{id}/members", group.HandleMembers(db))
+		r.Post("/{id}/invite-code", group.HandleCreateCode(db))
+		r.Post("/{id}/invite-friend", group.HandleInviteFriend(db, hub))
 		r.Post("/{id}/channels", channel.HandleCreate(db))
 		r.Get("/{id}/channels", channel.HandleList(db))
+	})
+
+	// Direct group invitations received by the caller
+	r.Route("/api/group-invites", func(r chi.Router) {
+		r.Use(auth.RequireAuth(db))
+		r.Get("/", group.HandleListInvites(db))
+		r.Post("/{id}/accept", group.HandleAcceptInvite(db, hub))
+		r.Post("/{id}/reject", group.HandleRejectInvite(db))
 	})
 
 	// Channels (messages)

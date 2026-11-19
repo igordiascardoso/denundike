@@ -32,6 +32,13 @@ func Create(db *sql.DB, ownerID, name string) (*Group, error) {
 		return nil, err
 	}
 
+	if _, err = tx.Exec(
+		`INSERT INTO channels (id, group_id, name, type, created_at) VALUES (?, ?, 'geral', 'text', ?)`,
+		uuid.New().String(), id, now,
+	); err != nil {
+		return nil, err
+	}
+
 	if err = tx.Commit(); err != nil {
 		return nil, err
 	}

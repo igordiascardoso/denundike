@@ -10,64 +10,95 @@ import (
 
 // Sentinel errors.
 var (
-	ErrUserNotFound    = errors.New("target user not found")
-	ErrAlreadyExists   = errors.New("friendship already exists")
+	ErrUserNotFound       = errors.New("target user not found")
+	ErrAlreadyExists      = errors.New("friendship already exists")
 	ErrFriendshipNotFound = errors.New("friendship not found")
+	ErrSelf               = errors.New("cannot add yourself")
 )
 
 // RequestFriend sends a friend request from requesterID to the user identified by targetLogin.
-func RequestFriend(db *sql.DB, requesterID, targetLogin string) error {
-	var targetID string
-	err := db.QueryRow(`SELECT id FROM users WHERE login = ?`, targetLogin).Scan(&targetID)
+// It returns the target's user id and whether the request completed an existing
+// opposite request (in which case the friendship is accepted immediately).
+func RequestFriend(db *sql.DB, requesterID, targetLogin string) (targetID string, accepted bool, err error) {
+	targetLogin = strings.TrimPrefix(strings.TrimSpace(targetLogin), "@")
+	err = db.QueryRow(`SELECT id FROM users WHERE login = ?`, targetLogin).Scan(&targetID)
 	if errors.Is(err, sql.ErrNoRows) {
-		return ErrUserNotFound
+		return "", false, ErrUserNotFound
 	}
 	if err != nil {
-		return err
+		return "", false, err
+	}
+	if targetID == requesterID {
+		return "", false, ErrSelf
 	}
 
-	id := uuid.New().String()
-	_, err = db.Exec(`
-		INSERT INTO friendships (id, requester_id, addressee_id, status)
-		VALUES (?, ?, ?, 'pending')
-	`, id, requesterID, targetID)
-	if err != nil {
-		if isUniqueConstraint(err) {
-			return ErrAlreadyExists
+	var existingID, existingRequester string
+	var status Status
+	err = db.QueryRow(`
+		SELECT id, requester_id, status FROM friendships
+		WHERE (requester_id = ? AND addressee_id = ?) OR (requester_id = ? AND addressee_id = ?)
+	`, requesterID, targetID, targetID, requesterID).Scan(&existingID, &existingRequester, &status)
+
+	switch {
+	case errors.Is(err, sql.ErrNoRows):
+		_, err = db.Exec(`
+			INSERT INTO friendships (id, requester_id, addressee_id, status)
+			VALUES (?, ?, ?, 'pending')
+		`, uuid.New().String(), requesterID, targetID)
+		if err != nil {
+			if isUniqueConstraint(err) {
+				return "", false, ErrAlreadyExists
+			}
+			return "", false, err
 		}
-		return err
+		return targetID, false, nil
+	case err != nil:
+		return "", false, err
+	case status == StatusAccepted:
+		return "", false, ErrAlreadyExists
+	case status == StatusPending && existingRequester == requesterID:
+		return "", false, ErrAlreadyExists
+	case status == StatusPending:
+		// The other person already asked us: this request completes the friendship.
+		_, err = db.Exec(`UPDATE friendships SET status = 'accepted' WHERE id = ?`, existingID)
+		return targetID, true, err
+	default: // rejected earlier: reopen as a fresh request from the current requester
+		_, err = db.Exec(`
+			UPDATE friendships SET requester_id = ?, addressee_id = ?, status = 'pending' WHERE id = ?
+		`, requesterID, targetID, existingID)
+		return targetID, false, err
 	}
-	return nil
 }
 
-// AcceptFriend sets a friendship status to "accepted".
+// AcceptFriend sets a friendship status to "accepted" and returns the requester's id.
 // Only the addressee may accept.
-func AcceptFriend(db *sql.DB, friendshipID, addresseeID string) error {
+func AcceptFriend(db *sql.DB, friendshipID, addresseeID string) (string, error) {
 	return setStatus(db, friendshipID, addresseeID, StatusAccepted)
 }
 
 // RejectFriend sets a friendship status to "rejected".
 // Only the addressee may reject.
 func RejectFriend(db *sql.DB, friendshipID, addresseeID string) error {
-	return setStatus(db, friendshipID, addresseeID, StatusRejected)
+	_, err := setStatus(db, friendshipID, addresseeID, StatusRejected)
+	return err
 }
 
-func setStatus(db *sql.DB, friendshipID, addresseeID string, status Status) error {
-	res, err := db.Exec(`
-		UPDATE friendships SET status = ?
-		WHERE id = ? AND addressee_id = ?
-	`, status, friendshipID, addresseeID)
+func setStatus(db *sql.DB, friendshipID, addresseeID string, status Status) (string, error) {
+	var requesterID string
+	err := db.QueryRow(
+		`SELECT requester_id FROM friendships WHERE id = ? AND addressee_id = ?`,
+		friendshipID, addresseeID,
+	).Scan(&requesterID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", ErrFriendshipNotFound
+	}
 	if err != nil {
-		return err
+		return "", err
 	}
-	n, err := res.RowsAffected()
-	if err != nil {
-		return err
+	if _, err := db.Exec(`UPDATE friendships SET status = ? WHERE id = ?`, status, friendshipID); err != nil {
+		return "", err
 	}
-	if n == 0 {
-		return ErrFriendshipNotFound
-	}
-	return nil
+	return requesterID, nil
 }
 
 // ListFriends returns all friendships involving userID (as requester or addressee).

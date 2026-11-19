@@ -33,27 +33,20 @@ func List(db *sql.DB, channelID, beforeID string, limit int) ([]Message, error) 
 
 	if beforeID == "" {
 		rows, err = db.Query(`
-			SELECT id, channel_id, user_id, text, created_at
-			FROM messages
-			WHERE channel_id = ?
-			ORDER BY created_at DESC
+			SELECT m.id, m.channel_id, m.user_id, u.login, m.text, m.created_at
+			FROM messages m JOIN users u ON u.id = m.user_id
+			WHERE m.channel_id = ?
+			ORDER BY m.rowid DESC
 			LIMIT ?
 		`, channelID, limit)
 	} else {
-		// Fetch the created_at of the cursor message first.
-		var cursorTime time.Time
-		if err := db.QueryRow(
-			`SELECT created_at FROM messages WHERE id = ?`, beforeID,
-		).Scan(&cursorTime); err != nil {
-			return nil, err
-		}
 		rows, err = db.Query(`
-			SELECT id, channel_id, user_id, text, created_at
-			FROM messages
-			WHERE channel_id = ? AND created_at < ?
-			ORDER BY created_at DESC
+			SELECT m.id, m.channel_id, m.user_id, u.login, m.text, m.created_at
+			FROM messages m JOIN users u ON u.id = m.user_id
+			WHERE m.channel_id = ? AND m.rowid < (SELECT rowid FROM messages WHERE id = ?)
+			ORDER BY m.rowid DESC
 			LIMIT ?
-		`, channelID, cursorTime, limit)
+		`, channelID, beforeID, limit)
 	}
 	if err != nil {
 		return nil, err
@@ -63,7 +56,7 @@ func List(db *sql.DB, channelID, beforeID string, limit int) ([]Message, error) 
 	var msgs []Message
 	for rows.Next() {
 		var m Message
-		if err := rows.Scan(&m.ID, &m.ChannelID, &m.UserID, &m.Text, &m.CreatedAt); err != nil {
+		if err := rows.Scan(&m.ID, &m.ChannelID, &m.UserID, &m.Login, &m.Text, &m.CreatedAt); err != nil {
 			return nil, err
 		}
 		msgs = append(msgs, m)
