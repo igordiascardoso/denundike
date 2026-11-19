@@ -81,7 +81,7 @@ autoUpdater.on('update-available', () => {
 
 autoUpdater.on('update-downloaded', () => {
   if (mainWin) mainWin.webContents.send('update-downloaded');
-  else pendingUpdateDownloaded = true;
+  else autoUpdater.quitAndInstall(true, true);
 });
 
 ipcMain.on('install-update', () => {
