@@ -3,7 +3,7 @@ WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN go build -o /denundike ./cmd/denundike
+RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o /denundike ./cmd/denundike
 
 FROM alpine:3.21
 RUN apk add --no-cache ca-certificates
