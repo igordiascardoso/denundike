@@ -29,11 +29,18 @@ contextBridge.exposeInMainWorld('bridge', {
 
   serverUrl: BASE_URL,
 
+  win: {
+    minimize: () => ipcRenderer.send('win-minimize'),
+    toggleMaximize: () => ipcRenderer.send('win-toggle-maximize'),
+    close: () => ipcRenderer.send('win-close'),
+  },
+
   ws: {
     connect: (token) => wsClient.connect(BASE_URL, token),
     send: (obj) => wsClient.send(obj),
     onMessage: (cb) => wsClient.onMessage(cb),
     onReconnect: (cb) => wsClient.onReconnect(cb),
+    onOpen: (cb) => wsClient.onOpen(cb),
     disconnect: () => wsClient.disconnect(),
   },
 

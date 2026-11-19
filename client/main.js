@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, Menu } = require('electron');
 const path = require('path');
 const { autoUpdater } = require('electron-updater');
 
@@ -14,6 +14,8 @@ function createMainWindow() {
     minWidth: 1100,
     minHeight: 600,
     title: 'Denundike',
+    frame: false,
+    backgroundColor: '#090C0D',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -72,6 +74,7 @@ function createLoginWindow() {
 }
 
 app.whenReady().then(() => {
+  Menu.setApplicationMenu(null);
   createLoginWindow();
   autoUpdater.checkForUpdatesAndNotify();
 });
@@ -99,6 +102,14 @@ autoUpdater.on('update-downloaded', () => {
     setTimeout(() => autoUpdater.quitAndInstall(true, true), 2000);
   }
 });
+
+const winOf = (e) => BrowserWindow.fromWebContents(e.sender);
+ipcMain.on('win-minimize', (e) => winOf(e)?.minimize());
+ipcMain.on('win-toggle-maximize', (e) => {
+  const w = winOf(e);
+  if (w) w.isMaximized() ? w.unmaximize() : w.maximize();
+});
+ipcMain.on('win-close', (e) => winOf(e)?.close());
 
 ipcMain.on('install-update', () => {
   autoUpdater.quitAndInstall();

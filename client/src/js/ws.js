@@ -9,6 +9,8 @@ class DenundikeWS {
     this._reconnectTimer = null;
     this._msgCbs = [];
     this._reconCbs = [];
+    this._openCbs = [];
+    this._everOpened = false;
     this._closed = false;
   }
 
@@ -32,6 +34,9 @@ class DenundikeWS {
 
     ws.onopen = () => {
       this._attempt = 0;
+      const again = this._everOpened;
+      this._everOpened = true;
+      this._openCbs.forEach(cb => { try { cb(again); } catch (_) {} });
     };
 
     ws.onmessage = (ev) => {
@@ -62,6 +67,10 @@ class DenundikeWS {
 
   onMessage(cb) {
     this._msgCbs.push(cb);
+  }
+
+  onOpen(cb) {
+    this._openCbs.push(cb);
   }
 
   onReconnect(cb) {

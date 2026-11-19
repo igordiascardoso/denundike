@@ -181,6 +181,12 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 .update-banner{position:fixed;top:0;left:0;right:0;z-index:110;background:var(--accent);color:var(--accent-ink);font:600 13px var(--body);padding:7px 16px;display:none;align-items:center;gap:10px}
 .update-banner.show{display:flex}
 .update-banner .sp{flex:1}
+.titlebar{-webkit-app-region:drag;user-select:none}.titlebar .wc{-webkit-app-region:no-drag}
+.toast.err{background:var(--hot);color:#fff}
+.chhd{display:flex;align-items:center;justify-content:space-between}.chhd .ib{width:26px;height:26px;margin-top:8px}
+.fr .acts{align-items:center}
+.fr .btn.sm{height:32px}
+.sel{appearance:none;width:100%}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
@@ -228,15 +234,16 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
   <header class="titlebar">
     <svg class="i" aria-hidden="true"><use href="#logo"/></svg><span>Denundike</span>
     <div class="wc">
-      <button aria-label="Minimizar"><svg class="i sm"><use href="#min"/></svg></button>
-      <button aria-label="Maximizar"><svg class="i sm"><use href="#sq"/></svg></button>
-      <button aria-label="Fechar"><svg class="i sm"><use href="#x"/></svg></button>
+      <button id="wMin" aria-label="Minimizar"><svg class="i sm"><use href="#min"/></svg></button>
+      <button id="wMax" aria-label="Maximizar"><svg class="i sm"><use href="#sq"/></svg></button>
+      <button id="wClose" aria-label="Fechar"><svg class="i sm"><use href="#x"/></svg></button>
     </div>
   </header>
   <div class="shell">
     <nav class="rail" id="rail" aria-label="Grupos">
       <button class="gbtn home" id="homeBtn" aria-label="Amigos" title="Amigos">
         <svg class="i lg" aria-hidden="true"><use href="#users"/></svg>
+        <span class="badge" id="homeBadge" hidden>0</span>
       </button>
       <div class="sep"></div>
       <!-- grupos dinâmicos inseridos aqui pelo JS -->
@@ -302,7 +309,12 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
         <h2><svg class="i"><use href="#users"/></svg>Amigos</h2>
       </div>
       <div class="fb" id="fb">
-        <div class="empty-s">Carregando...</div>
+        <div class="addbox">
+          <h2>Adicionar amigo</h2>
+          <p>Digite o @login da pessoa. Ela recebe o pedido na hora e só vira amigo quando aceitar.</p>
+          <div class="copyrow"><div class="fld" style="flex:1"><span class="at">@</span><input id="addFriendLogin" placeholder="login do amigo" autocomplete="off" spellcheck="false"></div><button class="btn pri" id="addFriendBtn" type="button">Enviar pedido</button></div>
+        </div>
+        <div id="fbLists"><div class="empty-s">Carregando...</div></div>
       </div>
     </section>
   </div>
@@ -328,18 +340,37 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 <!-- modais -->
 <div class="ov" id="m-invite" hidden><div class="modal" role="dialog" aria-modal="true" aria-labelledby="t-inv">
   <button class="ib mx" data-close aria-label="Fechar"><svg class="i"><use href="#x"/></svg></button>
-  <div class="mh"><h2 id="t-inv">Convidar para o grupo</h2><p>Qualquer pessoa com o link entra no grupo.</p></div>
+  <div class="mh"><h2 id="t-inv">Convidar para <span id="invGroupName">o grupo</span></h2><p>Chame um amigo direto ou gere um código para compartilhar.</p></div>
   <div class="mb">
-    <label class="l">Ou convidar por @login<div class="copyrow"><div class="fld" style="flex:1;height:44px"><span class="at">@</span><input id="invLogin" placeholder="login do amigo"></div><button class="btn" id="invSend" type="button">Enviar convite</button></div></label>
+    <label class="l">Convidar um amigo
+      <div class="copyrow"><select class="in sel" id="invFriend"><option value="">Carregando…</option></select><button class="btn pri" id="invSend" type="button" disabled>Enviar convite</button></div>
+      <span class="hint" id="invFriendHint"></span>
+    </label>
+    <label class="l">Ou compartilhe um código
+      <div class="copyrow"><input class="in" id="invCode" readonly placeholder="Clique em Gerar código"><button class="btn" id="invGen" type="button">Gerar código</button><button class="btn" id="invCopy" type="button">Copiar</button></div>
+      <span class="hint">Qualquer pessoa com o código entra no grupo. Vale por 7 dias.</span>
+    </label>
   </div>
 </div></div>
 
 <div class="ov" id="m-group" hidden><div class="modal" role="dialog" aria-modal="true" aria-labelledby="t-grp">
   <button class="ib mx" data-close aria-label="Fechar"><svg class="i"><use href="#x"/></svg></button>
-  <div class="mh"><h2 id="t-grp">Criar um grupo</h2><p>Seu espaço com canais de texto.</p></div>
+  <div class="mh"><h2 id="t-grp">Criar ou entrar em um grupo</h2><p>Crie seu espaço ou entre no de alguém com um código.</p></div>
   <div class="mb">
     <label class="l">Nome do novo grupo<input class="in" id="newGroupName" placeholder="Ex.: Cineclube da sexta"></label>
-    <button class="btn pri" id="createGroupBtn">Criar grupo</button>
+    <button class="btn pri" id="createGroupBtn" type="button">Criar grupo</button>
+    <hr style="border:0;border-top:1px solid var(--line)">
+    <label class="l">Já tem um código de convite?<input class="in" id="joinCode" placeholder="Cole o código aqui" autocomplete="off" spellcheck="false"></label>
+    <button class="btn" id="joinGroupBtn" type="button">Entrar no grupo</button>
+  </div>
+</div></div>
+
+<div class="ov" id="m-channel" hidden><div class="modal" role="dialog" aria-modal="true" aria-labelledby="t-ch">
+  <button class="ib mx" data-close aria-label="Fechar"><svg class="i"><use href="#x"/></svg></button>
+  <div class="mh"><h2 id="t-ch">Criar canal de texto</h2><p>Um lugar para conversar sobre um assunto.</p></div>
+  <div class="mb">
+    <label class="l">Nome do canal<input class="in" id="newChName" placeholder="Ex.: filmes" maxlength="40" autocomplete="off"></label>
+    <button class="btn pri" id="createChBtn" type="button">Criar canal</button>
   </div>
 </div></div>
 
@@ -378,12 +409,41 @@ const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const ic = (n, c = 'i sm') => `<svg class="${c}" aria-hidden="true"><use href="#${n}"/></svg>`;
 function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
-function toast(t) {
+function toast(t, isErr) {
   const e = $('#toast');
-  e.innerHTML = ic('ck') + esc(t);
+  e.innerHTML = ic(isErr ? 'x' : 'ck') + esc(t);
+  e.classList.toggle('err', !!isErr);
   e.classList.add('show');
   clearTimeout(toast._t);
-  toast._t = setTimeout(() => e.classList.remove('show'), 2200);
+  toast._t = setTimeout(() => e.classList.remove('show'), isErr ? 3800 : 2400);
+}
+
+const ERR_TXT = {
+  'user not found': 'Usuário não encontrado.',
+  'friendship already exists': 'Vocês já são amigos ou já existe um pedido pendente.',
+  'cannot add yourself': 'Você não pode adicionar a si mesmo.',
+  'only friends can be invited': 'Só dá para convidar amigos. Adicione a pessoa primeiro.',
+  'already a member': 'Essa pessoa já está no grupo.',
+  'already invited': 'Essa pessoa já tem um convite pendente.',
+  'invalid or expired code': 'Código inválido ou expirado.',
+  'invite not found': 'Esse convite não existe mais.',
+  'friendship not found': 'Esse pedido não existe mais.',
+  'forbidden': 'Você não tem permissão para isso.',
+};
+function errMsg(e) {
+  const m = (e && e.message) || '';
+  if (/failed to fetch|networkerror|load failed/i.test(m)) return 'Sem conexão com o servidor.';
+  return ERR_TXT[m] || m || 'Algo deu errado. Tente de novo.';
+}
+const fail = e => toast(errMsg(e), true);
+const soon = what => toast(what + ' chega na próxima versão do Denundike.');
+
+/* executa uma ação de botão: desabilita durante a chamada e sempre avisa em caso de erro */
+async function run(btn, fn) {
+  if (btn) btn.disabled = true;
+  try { return await fn(); }
+  catch (e) { fail(e); }
+  finally { if (btn) btn.disabled = false; }
 }
 
 /* ── auth guard ── */
@@ -395,28 +455,48 @@ if (!TOKEN || !USER) {
 
 const SERVER = window.bridge.serverUrl;
 
-/* ── API autenticada ── */
+function forceLogout() {
+  localStorage.removeItem('denundike_token');
+  localStorage.removeItem('denundike_user');
+  try { window.bridge.ws.disconnect(); } catch (_) {}
+  location.href = 'login.html';
+}
+
+/* ── API autenticada (com timeout, nunca fica pendurada) ── */
 async function api(method, path, body) {
-  const opts = {
-    method,
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': 'Bearer ' + TOKEN,
-    },
-  };
-  if (body && method !== 'GET') opts.body = JSON.stringify(body);
-  const res = await fetch(SERVER + path, opts);
-  if (!res.ok) throw new Error((await res.text()).trim() || res.statusText);
-  if (res.status === 204) return null;
-  return res.json();
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), 15000);
+  try {
+    const opts = {
+      method,
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + TOKEN },
+      signal: ctl.signal,
+    };
+    if (body && method !== 'GET') opts.body = JSON.stringify(body);
+    const res = await fetch(SERVER + path, opts);
+    if (res.status === 401) { forceLogout(); throw new Error('Sessão expirada. Entre de novo.'); }
+    if (!res.ok) throw new Error((await res.text()).trim() || res.statusText);
+    const txt = await res.text();
+    return txt ? JSON.parse(txt) : null;
+  } catch (e) {
+    if (e.name === 'AbortError') throw new Error('O servidor demorou demais para responder.');
+    throw e;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 /* ── avatares ── */
 const AV_COLORS = ['c1','c2','c3','c4','c5','c6'];
-function avColor(id) { return AV_COLORS[Math.abs(id) % 6]; }
+function avColor(id) {
+  let h = 0;
+  for (const c of String(id)) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  return AV_COLORS[h % 6];
+}
 function initials(name) {
   if (!name) return '?';
   const p = name.split(/[\s._\-]+/).filter(Boolean);
+  if (!p.length) return '?';
   if (p.length === 1) return p[0].slice(0, 2).toUpperCase();
   return (p[0][0] + p[1][0]).toUpperCase();
 }
@@ -425,10 +505,16 @@ function initials(name) {
 let activeGroup   = null; // {id, name}
 let activeChannel = null; // {id, name, group_id}
 let allGroups     = [];
+let friends       = [];   // entradas de /api/friends
+let gInvites      = [];   // convites de grupo recebidos
+
+/* ── janela (barra de título própria) ── */
+$('#wMin').onclick = () => window.bridge.win.minimize();
+$('#wMax').onclick = () => window.bridge.win.toggleMaximize();
+$('#wClose').onclick = () => window.bridge.win.close();
 
 /* ── usuário logado ── */
 function setAvText(el, text) {
-  // set text content of avatar preserving child span elements
   const spans = [...el.querySelectorAll('span')];
   el.textContent = text;
   spans.forEach(s => el.appendChild(s));
@@ -442,16 +528,13 @@ function renderMe() {
   setAvText($('#meAv'), ini);
   $('#meName').textContent   = USER.login;
   $('#meStatus').textContent = '@' + USER.login + ' · Online';
-  // menu
   $('#meMenuAv').className = 'av lg ' + col;
   setAvText($('#meMenuAv'), ini);
   $('#meMenuName').textContent  = USER.login;
   $('#meMenuLogin').textContent = '@' + USER.login;
-  // settings
   $('#settingsAv').textContent  = ini;
   $('#settingsName').textContent  = USER.login;
   $('#settingsLogin').textContent = '@' + USER.login;
-  // profile
   $('#profAv').className = 'av xl ' + col;
   setAvText($('#profAv'), ini);
   $('#t-prof').textContent    = USER.login;
@@ -492,7 +575,6 @@ document.addEventListener('keydown', e => {
   }
 });
 $('#addGroup').onclick = e => openM('m-group', e.currentTarget);
-$('#invBtn').onclick   = e => openM('m-invite', e.currentTarget);
 document.addEventListener('click', e => {
   const s = e.target.closest('[data-settings]'); if (s) openM('m-settings', s);
   const a = e.target.closest('[data-act]');
@@ -504,11 +586,6 @@ document.addEventListener('click', e => {
     if (k === 'logout')   { closeM(); doLogout(); }
   }
 });
-$('#invSend').onclick = () => {
-  const v = $('#invLogin').value.trim().replace(/^@/, '');
-  toast(v ? 'Convite enviado para @' + v : 'Digite o @login da pessoa');
-  $('#invLogin').value = '';
-};
 
 /* ── pop-ups ── */
 function hidePops() {
@@ -539,81 +616,94 @@ $$('[data-status]').forEach(b => b.onclick = () => {
 });
 
 /* ── grupos ── */
-async function loadGroups() {
-  try {
-    const groups = await api('GET', '/api/groups');
-    allGroups = groups;
-    renderGroups(groups);
-    if (groups.length > 0) activateGroup(groups[0]);
-  } catch (err) {
-    toast('Erro ao carregar grupos: ' + err.message);
+async function loadGroups(selectId) {
+  const groups = await api('GET', '/api/groups');
+  allGroups = groups;
+  renderGroups(groups);
+  const pick = groups.find(g => g.id === selectId)
+            || groups.find(g => activeGroup && g.id === activeGroup.id)
+            || groups[0];
+  if (pick) {
+    await activateGroup(pick);
+  } else {
+    activeGroup = null;
+    $('#gname').textContent = '—';
+    $('#chlist').innerHTML = '<div class="empty-s" style="padding:30px 10px">Você ainda não está em nenhum grupo.<br>Use o + ao lado para criar um ou entrar com um código.</div>';
+    resetChat();
   }
 }
 
 function renderGroups(groups) {
-  // remove old dynamic group buttons
   $$('[data-gid]', $('#rail')).forEach(b => b.remove());
   const addBtn = $('#addGroup');
   groups.forEach(g => {
-    const ini = initials(g.name);
     const btn = document.createElement('button');
     btn.className = 'gbtn';
     btn.dataset.gid = g.id;
     btn.setAttribute('aria-label', g.name);
     btn.setAttribute('title', g.name);
-    btn.textContent = ini;
-    btn.onclick = () => { closeFriends(); activateGroup(g); };
-    addBtn.before(btn); // inserts in correct order, before the + button
+    btn.textContent = initials(g.name);
+    btn.onclick = () => { closeFriends(); activateGroup(g).catch(fail); };
+    addBtn.before(btn);
   });
 }
 
 async function activateGroup(group) {
+  const sameGroup = activeGroup && activeGroup.id === group.id;
   activeGroup = group;
   $('#gname').textContent = group.name;
-  $$('[data-gid]', $('#rail')).forEach(b => b.classList.toggle('on', +b.dataset.gid === group.id));
+  $$('[data-gid]', $('#rail')).forEach(b => b.classList.toggle('on', b.dataset.gid === group.id));
   $('#homeBtn').classList.remove('on');
-  try {
-    const channels = await api('GET', '/api/groups/' + group.id + '/channels');
-    renderChannels(channels);
-    if (channels.length > 0) activateChannel(channels[0]);
-    else { resetChat(); }
-  } catch (err) {
-    toast('Erro ao carregar canais: ' + err.message);
+  const channels = await api('GET', '/api/groups/' + group.id + '/channels');
+  renderChannels(channels);
+  const keep = sameGroup && activeChannel && channels.find(c => c.id === activeChannel.id);
+  if (keep) {
+    $$('[data-chid]').forEach(b => b.classList.toggle('on', b.dataset.chid === keep.id));
+  } else if (channels.length > 0) {
+    await activateChannel(channels[0]);
+  } else {
+    resetChat();
   }
 }
 
 /* ── canais ── */
 function renderChannels(channels) {
   const list = $('#chlist');
+  list.innerHTML =
+    '<div class="chhd"><h3>Canais de texto</h3>' +
+    '<button class="ib" id="addChBtn" aria-label="Criar canal" title="Criar canal">' + ic('plus') + '</button></div>';
+  $('#addChBtn').onclick = e => openM('m-channel', e.currentTarget);
   if (!channels.length) {
-    list.innerHTML = '<div class="empty-s" style="padding:20px 10px">Nenhum canal neste grupo.</div>';
+    list.insertAdjacentHTML('beforeend', '<div class="empty-s" style="padding:20px 10px">Nenhum canal neste grupo. Crie o primeiro no +.</div>');
     return;
   }
-  list.innerHTML = '<h3>Canais de texto</h3>';
   channels.forEach(ch => {
     const btn = document.createElement('button');
     btn.className = 'ch';
     btn.dataset.chid = ch.id;
     btn.innerHTML = ic('hash') + esc(ch.name);
-    btn.onclick = () => activateChannel(ch);
+    btn.onclick = () => activateChannel(ch).catch(fail);
     list.appendChild(btn);
   });
 }
 
 async function activateChannel(ch) {
   activeChannel = ch;
-  $$('[data-chid]').forEach(b => b.classList.toggle('on', +b.dataset.chid === ch.id));
+  $$('[data-chid]').forEach(b => b.classList.toggle('on', b.dataset.chid === ch.id));
   $('#chname').textContent = ch.name;
   $('#cin').placeholder   = 'Mensagem em #' + ch.name;
   $('#cin').disabled      = false;
   $('#compose .send').disabled = false;
   setMem(false);
-  try {
-    const msgs = await api('GET', '/api/channels/' + ch.id + '/messages?limit=50');
-    renderMessages(msgs.reverse ? msgs.reverse() : msgs);
-  } catch (err) {
-    toast('Erro ao carregar mensagens: ' + err.message);
-  }
+  await loadMessages();
+}
+
+async function loadMessages() {
+  if (!activeChannel) return;
+  const id = activeChannel.id;
+  const msgs = await api('GET', '/api/channels/' + id + '/messages?limit=50');
+  if (!activeChannel || activeChannel.id !== id) return;
+  renderMessages((msgs || []).slice().reverse());
 }
 
 function resetChat() {
@@ -625,31 +715,42 @@ function resetChat() {
   $('#msgs').innerHTML = '<div class="no-channel">Nenhum canal neste grupo.</div>';
 }
 
+$('#createChBtn').onclick = e => run(e.currentTarget, async () => {
+  if (!activeGroup) return toast('Escolha um grupo primeiro.', true);
+  const name = $('#newChName').value.trim().toLowerCase().replace(/\s+/g, '-');
+  if (!name) return toast('Digite um nome para o canal.', true);
+  const ch = await api('POST', '/api/groups/' + activeGroup.id + '/channels', { name, type: 'text' });
+  closeM();
+  $('#newChName').value = '';
+  toast('Canal #' + name + ' criado');
+  renderChannels(await api('GET', '/api/groups/' + activeGroup.id + '/channels'));
+  await activateChannel(ch);
+});
+$('#newChName').addEventListener('keydown', e => { if (e.key === 'Enter') $('#createChBtn').click(); });
+
 /* ── mensagens ── */
 function renderMessages(msgs) {
   const container = $('#msgs');
   container.innerHTML = '<div class="day">Hoje</div>';
+  if (!msgs.length) container.insertAdjacentHTML('beforeend', '<div class="no-channel">Ainda não há mensagens. Diga oi!</div>');
   msgs.forEach(m => _appendMsg(container, m));
   container.scrollTop = container.scrollHeight;
 }
 
 function appendMessage(m) {
   const container = $('#msgs');
-  // remove "no-channel" placeholder if present
   const ph = container.querySelector('.no-channel');
   if (ph) ph.remove();
   if (!container.querySelector('.day')) {
     container.insertAdjacentHTML('afterbegin', '<div class="day">Hoje</div>');
   }
+  if (m.id && container.querySelector('[data-mid="' + m.id + '"]')) return;
   _appendMsg(container, m);
   container.scrollTop = container.scrollHeight;
 }
 
 function _appendMsg(container, m) {
-  const isMe = USER && m.author_id === USER.id;
-  const login = m.login || (isMe ? USER.login : 'user' + m.author_id);
-  const ini   = initials(login);
-  const col   = avColor(m.author_id);
+  const login = m.login || '?';
   let time = '';
   if (m.created_at) {
     const d = new Date(m.created_at);
@@ -659,10 +760,11 @@ function _appendMsg(container, m) {
   }
   const div = document.createElement('div');
   div.className = 'msg';
+  if (m.id) div.dataset.mid = m.id;
   div.innerHTML =
-    `<span class="av sm ${col}">${esc(ini)}</span>` +
+    `<span class="av sm ${avColor(m.user_id)}">${esc(initials(login))}</span>` +
     `<div class="b"><div class="who"><b>${esc(login)}</b><time>${esc(time)}</time></div>` +
-    `<p>${esc(m.content)}</p></div>`;
+    `<p>${esc(m.text)}</p></div>`;
   container.appendChild(div);
 }
 
@@ -672,154 +774,288 @@ $('#compose').addEventListener('submit', async e => {
   if (!activeChannel) return;
   const v = $('#cin').value.trim();
   if (!v) return;
+  const chId = activeChannel.id;
   $('#cin').value = '';
   try {
-    await api('POST', '/api/channels/' + activeChannel.id + '/messages', { content: v });
-    // Insert locally; WS skips our own messages to avoid duplicates
-    appendMessage({
-      author_id:  USER.id,
-      login:      USER.login,
-      content:    v,
-      created_at: new Date().toISOString(),
-    });
+    const msg = await api('POST', '/api/channels/' + chId + '/messages', { text: v });
+    if (activeChannel && activeChannel.id === chId) appendMessage(msg);
   } catch (err) {
-    toast('Erro ao enviar: ' + err.message);
-    $('#cin').value = v; // restore on error
+    fail(err);
+    $('#cin').value = v;
   }
 });
+$('#compose .ib').onclick = () => soon('Anexos');
 
 /* ── WebSocket ── */
-let wsReady = false;
-
 function connectWS() {
-  window.bridge.ws.onMessage(msg => {
-    if (msg.type !== 'message') return;
-    if (msg.author_id === USER?.id) return; // already inserted locally by compose
-    if (!activeChannel || msg.channel_id !== activeChannel.id) return;
-    appendMessage({
-      id:         msg.id,
-      channel_id: msg.channel_id,
-      author_id:  msg.author_id,
-      content:    msg.content,
-      created_at: new Date().toISOString(),
-      login:      msg.login || null,
-    });
+  window.bridge.ws.onMessage(ev => {
+    switch (ev.type) {
+      case 'message': {
+        const m = ev.message;
+        if (!m || m.user_id === USER.id) return;
+        if (activeChannel && ev.channel_id === activeChannel.id) appendMessage(m);
+        break;
+      }
+      case 'friend_request':
+        toast('@' + ev.login + ' quer ser seu amigo');
+        refreshSocial();
+        break;
+      case 'friend_update':
+        refreshSocial();
+        break;
+      case 'group_invite':
+        toast('@' + ev.inviter + ' convidou você para "' + ev.group_name + '"');
+        refreshSocial();
+        break;
+      case 'group_members':
+        if (activeGroup && ev.group_id === activeGroup.id && !$('#mem').hidden) loadMembers();
+        break;
+    }
   });
 
   window.bridge.ws.onReconnect(attempt => {
     $('#wsMsg').textContent = 'Reconectando... (tentativa ' + attempt + ')';
     $('#wsStatus').classList.add('show');
-    clearTimeout(connectWS._hideT);
-    // auto-hide after 3 s to signal reconnected
-    connectWS._hideT = setTimeout(() => {
-      $('#wsStatus').classList.remove('show');
-    }, 3000);
+  });
+  window.bridge.ws.onOpen(isReconnect => {
+    $('#wsStatus').classList.remove('show');
+    if (isReconnect) {
+      refreshSocial();
+      loadMessages().catch(() => {});
+    }
   });
 
   window.bridge.ws.connect(TOKEN);
 }
-connectWS._hideT = null;
 
-/* ── membros (placeholder) ── */
+/* ── membros ── */
 function setMem(on) {
   $('#mem').hidden   = !on;
   $('#msgs').hidden  = on;
   $('#compose').hidden = on;
   $('#memToggle').setAttribute('aria-pressed', on);
   $('#memToggle').classList.toggle('on', on);
-  if (on) {
-    $('#mem').innerHTML = '<h3>Membros</h3><div class="empty-s">Lista de membros em breve.</div>';
+  if (on) loadMembers();
+}
+async function loadMembers() {
+  const box = $('#mem');
+  if (!activeGroup) { box.innerHTML = '<h3>Membros</h3><div class="empty-s">Escolha um grupo.</div>'; return; }
+  try {
+    const members = await api('GET', '/api/groups/' + activeGroup.id + '/members');
+    box.innerHTML = '<h3>Membros · ' + members.length + '</h3>' + members.map(m =>
+      `<div class="mrow"><span class="av ${avColor(m.id)}">${esc(initials(m.login))}</span>` +
+      `<div class="t"><b>${esc(m.login)}</b><small>@${esc(m.login)}</small></div>` +
+      (m.is_owner ? '<span class="chip">Dono</span>' : '') + '</div>').join('');
+  } catch (e) {
+    box.innerHTML = '<h3>Membros</h3><div class="empty-s">Não foi possível carregar.</div>';
+    fail(e);
   }
 }
 document.addEventListener('click', e => {
-  if (e.target.closest('[data-members]')) { setMem($('#mem').hidden); }
+  if (e.target.closest('[data-members]')) {
+    if (!activeGroup) return toast('Escolha um grupo primeiro.', true);
+    setMem($('#mem').hidden);
+  }
 });
 
-/* ── amigos ── */
-async function loadFriends() {
+/* ── convidar para o grupo (amigo direto + código) ── */
+$('#invBtn').onclick = e => openInvite(e.currentTarget);
+async function openInvite(from) {
+  if (!activeGroup) return toast('Escolha um grupo primeiro.', true);
+  $('#invGroupName').textContent = activeGroup.name;
+  $('#invCode').value = '';
+  openM('m-invite', from);
+  const sel = $('#invFriend');
+  sel.innerHTML = '<option value="">Carregando…</option>';
+  $('#invSend').disabled = true;
   try {
-    const friends = await api('GET', '/api/friends');
-    renderFriendsList(friends);
-  } catch (err) {
-    $('#fb').innerHTML = '<div class="empty-s">Erro ao carregar amigos.</div>';
+    const [fs, ms] = await Promise.all([
+      api('GET', '/api/friends'),
+      api('GET', '/api/groups/' + activeGroup.id + '/members'),
+    ]);
+    friends = fs;
+    const inGroup = new Set(ms.map(m => m.id));
+    const avail = fs.filter(f => f.status === 'accepted' && !inGroup.has(f.user_id));
+    sel.innerHTML = avail.length
+      ? avail.map(f => `<option value="${esc(f.login)}">@${esc(f.login)}</option>`).join('')
+      : '<option value="">Nenhum amigo disponível</option>';
+    $('#invSend').disabled = !avail.length;
+    $('#invFriendHint').textContent = avail.length ? '' : 'Adicione amigos na aba Amigos para poder convidá-los.';
+  } catch (e) {
+    sel.innerHTML = '<option value="">—</option>';
+    fail(e);
   }
+}
+$('#invSend').onclick = e => run(e.currentTarget, async () => {
+  const login = $('#invFriend').value;
+  if (!login) return toast('Escolha um amigo.', true);
+  await api('POST', '/api/groups/' + activeGroup.id + '/invite-friend', { login });
+  toast('Convite enviado para @' + login);
+  await openInvite(_opener);
+});
+$('#invGen').onclick = e => run(e.currentTarget, async () => {
+  const r = await api('POST', '/api/groups/' + activeGroup.id + '/invite-code');
+  $('#invCode').value = r.code;
+  toast('Código gerado — vale por 7 dias');
+});
+$('#invCopy').onclick = async () => {
+  const v = $('#invCode').value;
+  if (!v) return toast('Gere o código primeiro.', true);
+  try { await navigator.clipboard.writeText(v); toast('Código copiado'); }
+  catch (_) { $('#invCode').select(); toast('Selecione e copie o código (Ctrl+C)'); }
+};
+
+/* ── amigos e convites recebidos ── */
+function pendingCount() {
+  return friends.filter(f => f.direction === 'received' && f.status === 'pending').length + gInvites.length;
+}
+function updateBadge() {
+  const n = pendingCount(), b = $('#homeBadge');
+  b.textContent = n > 9 ? '9+' : String(n);
+  b.hidden = n === 0;
 }
 
-function renderFriendsList(friends) {
-  const fb = $('#fb');
-  if (!friends.length) {
-    fb.innerHTML = '<div class="empty-s">Você ainda não tem amigos. Convide alguém!</div>';
-    return;
-  }
-  fb.innerHTML =
-    `<h3>Todos os amigos · ${friends.length}</h3>` +
-    friends.map(f => {
-      const ini = initials(f.login);
-      const col = avColor(f.id);
-      return `<div class="fr">
-        <span class="av ${col}">${esc(ini)}<span class="st online"></span></span>
-        <div class="t"><b>${esc(f.login)}</b><small>@${esc(f.login)}</small></div>
-        <div class="acts">
-          <button class="circ" aria-label="Mensagem para ${esc(f.login)}" title="Mensagem">${ic('msg','i')}</button>
-        </div>
-      </div>`;
-    }).join('');
+let _socialBusy = false;
+async function refreshSocial() {
+  if (_socialBusy) return;
+  _socialBusy = true;
+  try {
+    [friends, gInvites] = await Promise.all([api('GET', '/api/friends'), api('GET', '/api/group-invites')]);
+    friends = friends || []; gInvites = gInvites || [];
+    updateBadge();
+    if ($('#app').classList.contains('vf')) renderFriends();
+  } catch (_) { /* silencioso: o polling tenta de novo */ }
+  finally { _socialBusy = false; }
 }
+
+function frRow(login, id, sub, actions) {
+  return `<div class="fr">
+    <span class="av ${avColor(id)}">${esc(initials(login))}</span>
+    <div class="t"><b>${esc(login)}</b><small>${sub}</small></div>
+    <div class="acts">${actions}</div>
+  </div>`;
+}
+
+function renderFriends() {
+  const recv = friends.filter(f => f.direction === 'received' && f.status === 'pending');
+  const sent = friends.filter(f => f.direction === 'sent' && f.status === 'pending');
+  const ok   = friends.filter(f => f.status === 'accepted');
+  let html = '';
+
+  const incoming = recv.length + gInvites.length;
+  html += `<h3>Convites recebidos · ${incoming}</h3>`;
+  if (!incoming) {
+    html += '<div class="empty-s" style="padding:14px 0 24px">Nenhum convite no momento.</div>';
+  } else {
+    html += recv.map(f => frRow(f.login, f.user_id, '@' + esc(f.login) + ' quer ser seu amigo',
+      `<button class="btn pri sm" data-fr="accept" data-id="${esc(f.id)}">Aceitar</button>` +
+      `<button class="btn sm" data-fr="reject" data-id="${esc(f.id)}">Recusar</button>`)).join('');
+    html += gInvites.map(g => frRow(g.group_name, g.group_id, '@' + esc(g.inviter_login) + ' convidou você para este grupo',
+      `<button class="btn pri sm" data-gi="accept" data-id="${esc(g.id)}">Entrar</button>` +
+      `<button class="btn sm" data-gi="reject" data-id="${esc(g.id)}">Recusar</button>`)).join('');
+  }
+
+  if (sent.length) {
+    html += `<h3 style="margin-top:22px">Pedidos enviados · ${sent.length}</h3>`;
+    html += sent.map(f => frRow(f.login, f.user_id, '@' + esc(f.login), '<span class="chip neu">Aguardando</span>')).join('');
+  }
+
+  html += `<h3 style="margin-top:22px">Todos os amigos · ${ok.length}</h3>`;
+  html += ok.length
+    ? ok.map(f => frRow(f.login, f.user_id, '@' + esc(f.login),
+        `<button class="circ" data-dm aria-label="Mensagem para ${esc(f.login)}" title="Mensagem">${ic('msg','i')}</button>`)).join('')
+    : '<div class="empty-s" style="padding:14px 0">Você ainda não tem amigos. Envie um pedido pelo @login acima.</div>';
+
+  $('#fbLists').innerHTML = html;
+}
+
+$('#fbLists').addEventListener('click', e => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  if (b.dataset.dm !== undefined) return soon('Mensagens diretas');
+  const id = b.dataset.id;
+  if (b.dataset.fr) {
+    run(b, async () => {
+      await api('POST', '/api/friends/' + id + '/' + b.dataset.fr);
+      toast(b.dataset.fr === 'accept' ? 'Amizade aceita!' : 'Pedido recusado');
+      await refreshSocial();
+    });
+  } else if (b.dataset.gi) {
+    run(b, async () => {
+      if (b.dataset.gi === 'accept') {
+        const g = await api('POST', '/api/group-invites/' + id + '/accept');
+        toast('Você entrou em "' + g.name + '"');
+        await refreshSocial();
+        await loadGroups();
+      } else {
+        await api('POST', '/api/group-invites/' + id + '/reject');
+        toast('Convite recusado');
+        await refreshSocial();
+      }
+    });
+  }
+});
+
+$('#addFriendBtn').onclick = e => run(e.currentTarget, async () => {
+  const login = $('#addFriendLogin').value.trim().replace(/^@/, '');
+  if (!login) return toast('Digite o @login do seu amigo.', true);
+  const r = await api('POST', '/api/friends/request', { login });
+  $('#addFriendLogin').value = '';
+  toast(r && r.status === 'accepted' ? 'Vocês agora são amigos!' : 'Pedido enviado para @' + login);
+  await refreshSocial();
+});
+$('#addFriendLogin').addEventListener('keydown', e => { if (e.key === 'Enter') $('#addFriendBtn').click(); });
 
 function openFriends() {
   $('#app').classList.add('vf');
   $$('[data-gid]', $('#rail')).forEach(x => x.classList.remove('on'));
   $('#homeBtn').classList.add('on');
-  loadFriends();
+  renderFriends();
+  refreshSocial();
 }
 function closeFriends() {
   if (!$('#app').classList.contains('vf')) return;
   $('#app').classList.remove('vf');
   $('#homeBtn').classList.remove('on');
   if (activeGroup) {
-    $$('[data-gid]', $('#rail')).forEach(b => b.classList.toggle('on', +b.dataset.gid === activeGroup.id));
+    $$('[data-gid]', $('#rail')).forEach(b => b.classList.toggle('on', b.dataset.gid === activeGroup.id));
   }
 }
 $('#homeBtn').onclick = () => $('#app').classList.contains('vf') ? closeFriends() : openFriends();
 
-/* ── criar grupo ── */
-$('#createGroupBtn').onclick = async () => {
+/* ── criar grupo / entrar com código ── */
+$('#createGroupBtn').onclick = e => run(e.currentTarget, async () => {
   const name = $('#newGroupName').value.trim();
-  if (!name) { toast('Digite um nome para o grupo'); return; }
-  try {
-    const g = await api('POST', '/api/groups', { name });
-    closeM();
-    toast('Grupo "' + name + '" criado!');
-    $('#newGroupName').value = '';
-    await loadGroups();
-    // activate the new group
-    const created = allGroups.find(x => x.id === g.id);
-    if (created) activateGroup(created);
-  } catch (err) {
-    toast('Erro ao criar grupo: ' + err.message);
-  }
-};
+  if (!name) return toast('Digite um nome para o grupo.', true);
+  const g = await api('POST', '/api/groups', { name });
+  closeM();
+  $('#newGroupName').value = '';
+  toast('Grupo "' + name + '" criado!');
+  closeFriends();
+  await loadGroups(g.id);
+});
+$('#joinGroupBtn').onclick = e => run(e.currentTarget, async () => {
+  const code = $('#joinCode').value.trim();
+  if (!code) return toast('Cole o código do convite.', true);
+  const g = await api('POST', '/api/groups/join', { code });
+  closeM();
+  $('#joinCode').value = '';
+  toast('Você entrou em "' + g.name + '"');
+  closeFriends();
+  await loadGroups(g.id);
+});
+$('#newGroupName').addEventListener('keydown', e => { if (e.key === 'Enter') $('#createGroupBtn').click(); });
+$('#joinCode').addEventListener('keydown', e => { if (e.key === 'Enter') $('#joinGroupBtn').click(); });
 
 /* ── logout ── */
-function doLogout() {
-  localStorage.removeItem('denundike_token');
-  localStorage.removeItem('denundike_user');
-  window.bridge.ws.disconnect();
-  location.href = 'login.html';
+async function doLogout() {
+  try { await api('POST', '/api/auth/logout'); } catch (_) {}
+  forceLogout();
 }
 
-/* ── mic / fone toggles (UI only) ── */
-function togBtn(id, on, off) {
-  const b = $('#' + id);
-  b.onclick = () => {
-    const pressed = b.getAttribute('aria-pressed') === 'true';
-    b.setAttribute('aria-pressed', !pressed);
-    b.classList.toggle('off', !pressed);
-    b.querySelector('use').setAttribute('href', '#' + (!pressed ? off : on));
-  };
-}
-togBtn('micBtn', 'mic', 'micoff');
-togBtn('hpBtn',  'hp',  'hpoff');
+/* ── voz (Fase 2) ── */
+$('#micBtn').onclick = () => soon('O microfone e as chamadas de voz');
+$('#hpBtn').onclick  = () => soon('O áudio das chamadas');
 
 /* ── range sliders ── */
 function rng(r) { r.style.setProperty('--v', r.value + '%'); }
@@ -843,7 +1079,9 @@ if (window.bridge?.onUpdateAvailable) {
 document.addEventListener('DOMContentLoaded', async () => {
   renderMe();
   connectWS();
-  await loadGroups();
+  try { await loadGroups(); } catch (e) { fail(e); }
+  refreshSocial();
+  setInterval(refreshSocial, 10000);
 });
 </script>
 </body>
