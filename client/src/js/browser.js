@@ -41,11 +41,13 @@
         window.bridge.browser.onSize(() => this._recalibrateSoon());
         window.bridge.browser.onMotion((m) => {
           const t = this.local && this.local.out && this.local.out.getVideoTracks()[0];
-          if (t) t.contentHint = m ? 'motion' : 'detail';
+          // no modo automático o app troca a dica quando há vídeo tocando na página; nos outros modos vale a escolha do usuário
+          if (t && this.o.call.opts.mode === 'auto') t.contentHint = m ? 'motion' : 'detail';
         });
         window.bridge.browser.onDownloadProgress((pct) => {
           if (this._downloading) this._setDlProgress(pct);
         });
+        window.bridge.browser.onPrep((p) => this._onPrep(p));
       }
     }
 
@@ -102,6 +104,20 @@
       }
     }
 
+    /** o processo principal está baixando o AdGuard antes de abrir o Chrome (só a primeira vez ou se o anterior falhou) */
+    _onPrep(p) {
+      if (this._downloading || !p || p.what !== 'adguard') return;
+      const m = $('#m-chromedl');
+      if (!m) return;
+      const h = m.querySelector('h2'), t = m.querySelector('p');
+      if (!this._dlTxt) this._dlTxt = { h: h.textContent, p: t.textContent };
+      if (p.state === 'end') { m.hidden = true; h.textContent = this._dlTxt.h; t.textContent = this._dlTxt.p; return; }
+      h.textContent = 'Preparando o bloqueador de anúncios';
+      t.textContent = 'Baixando o AdGuard para o navegador compartilhado (só na primeira vez).';
+      m.hidden = false;
+      this._setDlProgress(p.pct || 0);
+    }
+
     _setDlProgress(pct) {
       const bar = document.getElementById('dlChromeBar');
       const txt = document.getElementById('dlChromePct');
@@ -139,7 +155,10 @@
           break;
         }
         case 'browser_cmd':
-          if (this.isHost && this.local) {
+          if (this.isHost && this.local && !this.local.ready) {
+            // o Chrome ainda está abrindo (baixando o bloqueador, carregando a extensão, calibrando): guarda o último endereço pedido
+            if (ev.kind === 'nav') this._pendingNav = ev.data;
+          } else if (this.isHost && this.local) {
             if (ev.kind === 'nav') window.bridge.browser.nav(ev.data);
             else if (ev.kind === 'input') window.bridge.browser.input(ev.from, ev.data);
           }
@@ -181,7 +200,7 @@
       };
       const L = this.local = { raw: null, out: null, video: null, canvas: null, ctx: null, crop: null, timer: null, calibrating: true, running: true };
       try {
-        const r = await window.bridge.browser.start(null);
+        const r = await window.bridge.browser.start(null, { h: this.o.call.quality.h });
         if (!this.local) return;
         if (r.error === 'no-chrome') return fail('Não foi possível iniciar o Chrome. Reinicie o app e tente novamente.');
         if (r.error) return fail('Não consegui abrir o navegador (' + r.error + ').');
@@ -203,16 +222,20 @@
 
         L.canvas = document.createElement('canvas');
         L.ctx = L.canvas.getContext('2d', { alpha: false });
+        L.ctx.imageSmoothingQuality = 'high';
+        this._winH = this.o.call.quality.h;
         await this._calibrate();
         if (!this.local) return;
         this._applyCrop();
         this._restartDraw();
         const track = L.canvas.captureStream().getVideoTracks()[0];
-        track.contentHint = 'detail';
+        track.contentHint = this.o.call.hint();
         L.out = new MediaStream([track, ...raw.getAudioTracks()]);
         this.o.call.setBrowserStream(L.out);
         await window.bridge.browser.nav({ action: 'go', url: url || 'https://www.google.com' });
         await window.bridge.browser.park(true);
+        L.ready = true;
+        if (this._pendingNav) { const n = this._pendingNav; this._pendingNav = null; window.bridge.browser.nav(n); }
         this.starting = false;
         this.render();
       } catch (e) {
@@ -270,8 +293,12 @@
       if (!L || !L.crop) return;
       const q = this.o.call.quality;
       const k = Math.min(1, MAX_W / L.crop.w, q.h / L.crop.h);
-      const w = Math.max(2, Math.round(L.crop.w * k)), h = Math.max(2, Math.round(L.crop.h * k));
-      if (L.canvas.width !== w || L.canvas.height !== h) { L.canvas.width = w; L.canvas.height = h; }
+      // O WebRTC reamostra (e borra) todo quadro cuja LARGURA não é múltipla de 4: um recorte de 1918 px deixava a imagem "apagada"
+      // para todo mundo, em qualquer codec e com qualquer bitrate. Alinha cortando até 3 colunas e 1 linha em vez de escalar.
+      let w = Math.round(L.crop.w * k), h = Math.round(L.crop.h * k);
+      w = Math.max(4, w - (w % 4)); h = Math.max(2, h - (h % 2));
+      L.src = { x: L.crop.x, y: L.crop.y, w: w / k, h: h / k };
+      if (L.canvas.width !== w || L.canvas.height !== h) { L.canvas.width = w; L.canvas.height = h; L.ctx.imageSmoothingQuality = 'high'; }
     }
 
     _restartDraw() {
@@ -284,6 +311,9 @@
     /** o usuário trocou a qualidade: a tela cheia do canvas acompanha (resolução e fps) */
     applyQuality() {
       if (!this.local || !this.local.crop) return;
+      const h = this.o.call.quality.h;
+      // a janela do Chrome acompanha a resolução: o aviso de mudança de tamanho recalibra o recorte sozinho
+      if (this._winH !== h) { this._winH = h; window.bridge.browser.resize(h).catch(() => {}); }
       this._applyCrop();
       this._restartDraw();
     }
@@ -291,7 +321,8 @@
     _draw() {
       const L = this.local;
       if (!L || !L.running || L.calibrating || !L.crop || !L.video.videoWidth) return;
-      try { L.ctx.drawImage(L.video, L.crop.x, L.crop.y, L.crop.w, L.crop.h, 0, 0, L.canvas.width, L.canvas.height); } catch (_) {}
+      const r = L.src || L.crop;
+      try { L.ctx.drawImage(L.video, r.x, r.y, r.w, r.h, 0, 0, L.canvas.width, L.canvas.height); } catch (_) {}
     }
 
     _recalibrateSoon() {
@@ -311,6 +342,7 @@
       this.starting = false;
       if (!L) return;
       L.running = false;
+      this._pendingNav = null;
       clearInterval(L.timer);
       clearTimeout(this._rc);
       try { this.o.call.setBrowserStream(null); } catch (_) {}

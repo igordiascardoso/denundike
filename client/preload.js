@@ -55,7 +55,8 @@ contextBridge.exposeInMainWorld('bridge', {
   browser: {
     available: () => ipcRenderer.invoke('browser-available'),
     info: () => ipcRenderer.invoke('browser-info'),
-    start: (url) => ipcRenderer.invoke('browser-start', url),
+    start: (url, opts) => ipcRenderer.invoke('browser-start', url, opts),
+    resize: (h) => ipcRenderer.invoke('browser-resize', h),
     stop: () => ipcRenderer.invoke('browser-stop'),
     nav: (n) => ipcRenderer.invoke('browser-nav', n),
     input: (from, ev) => ipcRenderer.invoke('browser-input', { from, ev }),
@@ -67,6 +68,7 @@ contextBridge.exposeInMainWorld('bridge', {
     onMotion: (cb) => ipcRenderer.on('browser-motion', (_e, m) => cb(!!m)),
     download: () => ipcRenderer.invoke('browser-download-start'),
     onDownloadProgress: (cb) => ipcRenderer.on('browser-download-progress', (_e, pct) => cb(pct)),
+    onPrep: (cb) => ipcRenderer.on('browser-prep', (_e, p) => cb(p)),
   },
 
   ws: {

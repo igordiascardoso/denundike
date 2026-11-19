@@ -205,12 +205,18 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 .bc svg{width:16px;height:16px;display:block}
 .bc span{position:absolute;left:14px;top:12px;background:var(--c);color:#000;font:600 11px var(--body);padding:2px 6px;border-radius:8px;white-space:nowrap}
 .bbanner{display:flex;justify-content:center;padding:8px;background:var(--bg1);border-bottom:1px solid var(--line)}
-.qpop{position:absolute;right:16px;bottom:94px;z-index:30;width:268px;background:var(--bg2);border:1px solid var(--line2);border-radius:var(--r-m);padding:14px;box-shadow:0 16px 40px rgba(0,0,0,.5)}
+.qpop{position:absolute;right:16px;bottom:94px;z-index:30;width:300px;max-width:calc(100% - 32px);max-height:calc(100% - 110px);overflow-x:hidden;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--bg4) transparent;background:var(--bg2);border:1px solid var(--line2);border-radius:var(--r-m);padding:14px;box-shadow:0 16px 40px rgba(0,0,0,.5)}
+.qpop .qbr{margin-bottom:6px}
+.qpop .qbrh{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;font-size:12px;color:var(--muted)}
+.qpop .qbrh label{display:flex;align-items:center;gap:6px;cursor:pointer}
+.qpop .qbrh b{color:var(--text);font-weight:600;font-variant-numeric:tabular-nums}
+.qpop input[type=range]:disabled{opacity:.4;cursor:not-allowed}
+.qpop .qwarn{margin:8px 0 0}
 .qpop[hidden]{display:none}
 .qpop h4{font:700 14px var(--display);margin-bottom:10px}
 .qpop .row{display:flex;gap:8px;margin-bottom:10px}
-.qpop .row label{flex:1;display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}
-.qpop select{height:34px;border-radius:var(--r-s);background:var(--bg3);border:1px solid var(--line2);color:var(--text);padding:0 8px}
+.qpop .row label{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}
+.qpop select{width:100%;min-width:0;text-overflow:ellipsis;height:34px;border-radius:var(--r-s);background:var(--bg3);border:1px solid var(--line2);color:var(--text);padding:0 8px}
 .qpop .st{position:static;width:auto;height:auto;border:0;border-radius:0;background:none;box-sizing:border-box;font-size:12px;color:var(--muted);line-height:1.5;margin-bottom:8px}
 .qpop .hint{background:var(--accent-soft);color:var(--text);border-radius:var(--r-s);padding:8px;font-size:12.5px;margin-top:6px}
 .bstage:fullscreen{width:100vw;height:100vh;background:#000}
@@ -458,6 +464,15 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
           <div class="row">
             <label>Resolução<select id="qRes"><option value="720">720p</option><option value="1080">1080p</option><option value="1440">1440p</option></select></label>
             <label>Quadros por segundo<select id="qFps"><option value="30">30 fps</option><option value="60">60 fps</option></select></label>
+          </div>
+          <div class="row">
+            <label>Tipo de conteúdo<select id="qMode"><option value="auto">Automático</option><option value="text">Texto e documentos</option><option value="motion">Vídeo e jogos</option></select></label>
+            <label>Codec<select id="qCodec"><option value="auto">Automático</option><option value="h264">H.264 (placa de vídeo)</option><option value="vp9">VP9</option></select></label>
+          </div>
+          <div class="qbr">
+            <div class="qbrh"><label for="qBrAuto"><input type="checkbox" id="qBrAuto" checked> Taxa de dados automática</label><b id="qBrVal">Auto</b></div>
+            <input type="range" id="qBr" min="2" max="30" step="1" value="8" disabled aria-label="Taxa de dados em Mbps">
+            <div class="st qwarn" id="qBrWarn">Mais Mbps deixa a imagem mais nítida, mas exige mais upload de quem compartilha. Cada pessoa que assiste recebe uma cópia.</div>
           </div>
           <div class="st qnow" id="qNow"></div>
           <div class="st" id="qStat">Sem transmissão de tela/navegador no momento.</div>
@@ -1612,11 +1627,30 @@ $('#cbLeave').onclick = $('#cmLeave').onclick = () => call.leave();
 
 /* ── qualidade da transmissão (tela e navegador) ── */
 let strainSuggestion = null;
+let qBrT = null;
 function syncQuality() {
   $('#qRes').value = String(call.quality.h);
   $('#qFps').value = String(call.quality.fps);
+  $('#qMode').value = call.opts.mode;
+  $('#qCodec').value = call.opts.codec;
+  const auto = !call.opts.bitrate;
+  $('#qBrAuto').checked = auto;
+  $('#qBr').disabled = auto;
+  // enquanto o usuário arrasta o slider, a tela não pode puxar o valor de volta (o aplicado chega 150 ms atrasado)
+  const dragging = qBrT !== null || document.activeElement === $('#qBr');
+  if (!auto && !dragging) $('#qBr').value = String(call.opts.bitrate);
+  rng($('#qBr'));
+  $('#qBrVal').textContent = auto ? 'Auto' : (dragging ? $('#qBr').value : call.opts.bitrate) + ' Mbps';
   $('#qNow').textContent = 'Qualidade escolhida: ' + call.quality.h + 'p a ' + call.quality.fps + ' fps';
 }
+$('#qMode').onchange = () => call.setOptions({ mode: $('#qMode').value });
+$('#qCodec').onchange = () => call.setOptions({ codec: $('#qCodec').value });
+$('#qBrAuto').onchange = () => call.setOptions({ bitrate: $('#qBrAuto').checked ? 0 : +$('#qBr').value });
+$('#qBr').addEventListener('input', () => {
+  $('#qBrVal').textContent = $('#qBr').value + ' Mbps';
+  clearTimeout(qBrT);
+  qBrT = setTimeout(() => { qBrT = null; call.setOptions({ bitrate: +$('#qBr').value }); }, 150);
+});
 function showStrain(info) {
   strainSuggestion = info.suggestion;
   $('#qHintTxt').textContent = 'Seu envio está engasgando (' + (info.reason === 'cpu' ? 'processador' : 'internet') + ', ' + Math.round(info.fps) + ' fps). Sugestão: ' + info.suggestion.h + 'p' + info.suggestion.fps + '.';
@@ -1631,14 +1665,20 @@ $('#qApply').onclick = () => { if (strainSuggestion) call.setQuality(strainSugge
 setInterval(() => {
   const s = call.sendStats;
   $('#qStat').textContent = s
-    ? 'Enviando ' + (s.w || '?') + '×' + (s.h || '?') + ' a ' + Math.round(s.fps) + ' fps · ' + (s.bps / 1e6).toFixed(1) + ' Mbps' + (s.limit !== 'none' ? ' · limitado por ' + (s.limit === 'cpu' ? 'processador' : 'internet') : '')
+    ? 'Enviando ' + (s.w || '?') + '×' + (s.h || '?') + ' a ' + Math.round(s.fps) + ' fps · ' + (s.bps / 1e6).toFixed(1) + ' Mbps' + (s.codec ? ' · ' + s.codec + (s.hw ? ' (placa de vídeo)' : ' (processador)') : '') + (s.limit !== 'none' ? ' · limitado por ' + (s.limit === 'cpu' ? 'processador' : 'internet') : '')
     : 'Sem transmissão de tela/navegador no momento.';
+  // o upload multiplica pelo número de pessoas assistindo
+  const mb = call.opts.bitrate || (s ? Math.max(1, Math.round(s.bps / 1e6)) : 0);
+  const n = s ? s.peers : 0;
+  $('#qBrWarn').textContent = n > 1 && mb
+    ? 'Com ' + n + ' pessoas assistindo, ' + mb + ' Mbps viram até ' + (mb * n) + ' Mbps de upload seu. Mais Mbps deixa a imagem mais nítida, mas exige mais internet de quem compartilha.'
+    : 'Mais Mbps deixa a imagem mais nítida, mas exige mais upload de quem compartilha. Cada pessoa que assiste recebe uma cópia.';
 }, 1500);
 syncQuality();
 syncCallButtons();
 
 /* ── range sliders ── */
-function rng(r) { r.style.setProperty('--v', r.value + '%'); }
+function rng(r) { const mn = +r.min || 0, mx = +r.max || 100; r.style.setProperty('--v', (((+r.value - mn) / (mx - mn)) * 100) + '%'); }
 $$('input[type=range]').forEach(r => { rng(r); r.oninput = () => rng(r); });
 
 /* ── auto-update ── */

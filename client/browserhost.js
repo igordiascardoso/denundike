@@ -106,38 +106,98 @@ async function extractZip(zipPath, destDir) {
 
 /* ── AdGuard ── */
 const ADGUARD_API = 'https://api.github.com/repos/AdguardTeam/AdguardBrowserExtension/releases/latest';
+const adguardApi = () => process.env.DENUNDIKE_ADGUARD_API || ADGUARD_API; // a variável existe só para testar falha de rede
 
-function adguardDir() { return path.join(app.getPath('userData'), 'adguard'); }
-function adguardVerFile() { return path.join(app.getPath('userData'), 'adguard-version'); }
-
-async function downloadAdGuard() {
+/* Log próprio (sem segredos): antes a falha era totalmente silenciosa e ninguém via por que o bloqueador não carregava. */
+function adguardLogFile() { return path.join(app.getPath('userData'), 'adguard.log'); }
+function adgLog(msg) {
   try {
-    const info = await new Promise((res, rej) => {
-      https.get(ADGUARD_API, { headers: { 'User-Agent': 'Denundike/1.0' } }, (resp) => {
-        let d = ''; resp.on('data', (c) => d += c);
-        resp.on('end', () => { try { res(JSON.parse(d)); } catch (e) { rej(e); } });
-        resp.on('error', rej);
-      }).on('error', rej);
+    const f = adguardLogFile();
+    let old = ''; try { old = fs.readFileSync(f, 'utf8'); } catch (_) {}
+    const line = new Date().toISOString() + ' ' + String(msg).split(/\s+/).join(' ').slice(0, 300) + '\n';
+    fs.writeFileSync(f, (old + line).slice(-60000));
+  } catch (_) {}
+}
+
+// uma pasta por versão (adguard/<tag>): atualizar nunca mexe na pasta que um Chrome aberto está usando
+function adguardRoot() { return path.join(app.getPath('userData'), 'adguard'); }
+function adguardVerFile() { return path.join(app.getPath('userData'), 'adguard-version'); }
+function adguardTag() { try { return fs.readFileSync(adguardVerFile(), 'utf8').trim(); } catch (_) { return ''; } }
+function adguardDir() {
+  const tag = adguardTag();
+  if (!tag || !/^[\w.\-]+$/.test(tag)) return null;
+  const d = path.join(adguardRoot(), tag);
+  return fs.existsSync(path.join(d, 'manifest.json')) ? d : null;
+}
+
+// O Chrome atual não carrega mais extensão MV2: vale só o pacote MV3 (chrome-mv3.zip).
+function pickAdguardAsset(assets) {
+  const l = Array.isArray(assets) ? assets : [];
+  return l.find((a) => a && /^chrome-mv3\.zip$/i.test(a.name)) || l.find((a) => a && /^chrome[-_].*mv3.*\.zip$/i.test(a.name)) || null;
+}
+
+function httpsJson(url, timeoutMs) {
+  return new Promise((res, rej) => {
+    const rq = https.get(url, { headers: { 'User-Agent': 'Denundike/1.0', Accept: 'application/vnd.github+json' } }, (resp) => {
+      let d = ''; resp.on('data', (c) => { d += c; });
+      resp.on('end', () => {
+        if (resp.statusCode !== 200) return rej(new Error('HTTP ' + resp.statusCode));
+        try { res(JSON.parse(d)); } catch (e) { rej(e); }
+      });
+      resp.on('error', rej);
     });
-    const tag = info.tag_name;
-    let cur = ''; try { cur = fs.readFileSync(adguardVerFile(), 'utf8').trim(); } catch (_) {}
-    if (cur === tag && fs.existsSync(path.join(adguardDir(), 'manifest.json'))) return;
-    const asset = info.assets && info.assets.find((a) => a.name && /^chrome_AdguardExtension.*\.zip$/.test(a.name));
-    if (!asset) return;
-    const tmpZip = path.join(os.tmpdir(), 'adguard-' + Date.now() + '.zip');
-    const tmpExt = tmpZip + '-ext';
-    await downloadFile(asset.browser_download_url, tmpZip);
+    rq.setTimeout(timeoutMs || 10000, () => rq.destroy(new Error('tempo esgotado')));
+    rq.on('error', rej);
+  });
+}
+
+async function installAdGuard(onProgress) {
+  const info = await httpsJson(adguardApi());
+  const tag = info && info.tag_name;
+  if (!tag || !/^[\w.\-]+$/.test(tag)) throw new Error('resposta da API sem versão');
+  if (adguardTag() === tag && adguardDir()) { adgLog('AdGuard ' + tag + ' já está em dia'); return true; }
+  const asset = pickAdguardAsset(info.assets);
+  if (!asset) throw new Error('a versão ' + tag + ' não tem chrome-mv3.zip');
+  const tmpZip = path.join(os.tmpdir(), 'adguard-' + Date.now() + '.zip');
+  const tmpExt = tmpZip + '-ext';
+  try {
+    await downloadFile(asset.browser_download_url, tmpZip, onProgress);
     await extractZip(tmpZip, tmpExt);
     let extRoot = tmpExt;
-    const entries = fs.readdirSync(tmpExt);
-    if (entries.length === 1) { const sub = path.join(tmpExt, entries[0]); if (fs.statSync(sub).isDirectory()) extRoot = sub; }
-    const dest = adguardDir();
-    try { fs.rmSync(dest, { recursive: true, force: true }); } catch (_) {}
-    fs.renameSync(extRoot, dest);
+    if (!fs.existsSync(path.join(extRoot, 'manifest.json'))) {
+      const entries = fs.readdirSync(tmpExt);
+      if (entries.length === 1 && fs.statSync(path.join(tmpExt, entries[0])).isDirectory()) extRoot = path.join(tmpExt, entries[0]);
+    }
+    if (!fs.existsSync(path.join(extRoot, 'manifest.json'))) throw new Error('o zip não trouxe manifest.json');
+    const root = adguardRoot();
+    fs.mkdirSync(root, { recursive: true });
+    const dest = path.join(root, tag);
+    fs.rmSync(dest, { recursive: true, force: true });
+    fs.cpSync(extRoot, dest, { recursive: true });
     fs.writeFileSync(adguardVerFile(), tag);
-    try { fs.unlinkSync(tmpZip); } catch (_) {}
-    try { if (tmpExt !== extRoot) fs.rmSync(tmpExt, { recursive: true, force: true }); } catch (_) {}
-  } catch (_) { /* silent — AdGuard é opcional */ }
+    adgLog('AdGuard ' + tag + ' instalado');
+    // versões antigas saem, menos a que um Chrome aberto está usando
+    for (const d of fs.readdirSync(root)) {
+      const full = path.join(root, d);
+      if (d === tag || (cur && cur.adgDir === full)) continue;
+      try { fs.rmSync(full, { recursive: true, force: true }); } catch (_) {}
+    }
+    return true;
+  } finally {
+    try { fs.rmSync(tmpZip, { force: true }); } catch (_) {}
+    try { fs.rmSync(tmpExt, { recursive: true, force: true }); } catch (_) {}
+  }
+}
+
+let adgBusy = null;
+/** baixa/atualiza o AdGuard; nunca lança. Chamadas simultâneas dividem o mesmo download. */
+function ensureAdGuard(onProgress) {
+  if (!adgBusy) {
+    adgBusy = installAdGuard(onProgress)
+      .catch((e) => { adgLog('falha ao baixar/atualizar: ' + ((e && e.message) || e)); return false; })
+      .finally(() => { adgBusy = null; });
+  }
+  return adgBusy;
 }
 
 /* ── download do Chrome ── */
@@ -241,15 +301,68 @@ async function stopSession(notify) {
   try { s.cdp.ws.close(); } catch (_) {}
   killTree(s.proc);
   if (notify && s.sender && !s.sender.isDestroyed()) s.sender.send('browser-ended');
+  // espera o Chrome sair de verdade: um Chrome novo no mesmo perfil, aberto antes disso, entrega o pedido ao antigo e fecha ("chrome exited")
+  const p = s.proc;
+  if (p && p.exitCode === null) await new Promise((res) => { const t = setTimeout(res, 4000); p.once('exit', () => { clearTimeout(t); res(); }); });
 }
 
-async function startSession(sender, url) {
+// Viewport 16:9 de h linhas. Na abertura a moldura (--window-size) soma 16 px de largura e 39 de altura;
+// ao redimensionar por CDP a barra de título soma ~31 px (o ajuste fino mede o viewport de verdade).
+const FRAME_W = 16, FRAME_H = 39, TITLE_H = 31;
+function windowFor(h) {
+  h = [720, 1080, 1440].includes(Number(h)) ? Number(h) : 1080;
+  let w = Math.round(h * 16 / 9);
+  // a janela nunca passa do tamanho da tela: o Windows corta o excedente e o recorte/mouse deixariam de bater com a página
+  try {
+    const d = require('electron').screen.getPrimaryDisplay().size; // só depois do 'ready'
+    const k = Math.min(1, (d.width - 24) / w, (d.height - FRAME_H - 24) / h);
+    if (k < 1) { h = Math.max(360, Math.floor(h * k / 2) * 2); w = Math.round(h * 16 / 9 / 2) * 2; }
+  } catch (_) {}
+  return { h, w };
+}
+
+/** carrega o AdGuard (pasta da versão atual) no Chrome da sessão e fecha as páginas que ele abre ao instalar */
+async function loadAdguard(s) {
+  const adg = adguardDir();
+  if (!adg || s.adgId || !s.cdp) return;
+  try {
+    const r = await s.cdp.send('Extensions.loadUnpacked', { path: adg });
+    s.adgDir = adg; s.adgId = r.id;
+    adgLog('extensão carregada no Chrome (id ' + r.id + ', versão ' + path.basename(adg) + ')');
+    s.cdp.send('Target.setDiscoverTargets', { discover: true }).catch(() => {});
+    const stray = (t) => t && t.type === 'page' && t.targetId !== s.targetId && (/^chrome-extension:\/\//i.test(t.url || '') || /^https?:\/\/([\w-]+\.)*adguard\.(com|org|info)\b/i.test(t.url || ''));
+    s.onTarget = (m) => {
+      if (m.method === 'Target.targetCreated' || m.method === 'Target.targetInfoChanged') {
+        const t = m.params && m.params.targetInfo;
+        if (stray(t)) s.cdp.send('Target.closeTarget', { targetId: t.targetId }).catch(() => {});
+      }
+    };
+  } catch (e) { adgLog('Extensions.loadUnpacked falhou: ' + ((e && e.message) || e)); }
+}
+
+async function startSession(sender, url, opts, retried) {
   if (cur) await stopSession(false);
   const found = findBrowser();
   if (!found) return { error: 'no-chrome' };
   const chrome = found.path;
   if (url && !isWebUrl(url)) return { error: 'bad-url' };
 
+  // Sem AdGuard ainda (primeira vez, ou o download antigo falhou): baixa antes de abrir, com barra de progresso.
+  // Se a internet estiver lenta, não segura a abertura: abre o Chrome sem bloqueador e, quando o download terminar,
+  // carrega a extensão no Chrome que já está aberto (sem reiniciar nada).
+  let adgPending = null;
+  if (!adguardDir()) {
+    let barOpen = true;
+    const prep = (state, pct) => { try { if (!sender.isDestroyed()) sender.send('browser-prep', { what: 'adguard', state, pct: pct || 0 }); } catch (_) {} };
+    prep('start', 0);
+    adgPending = ensureAdGuard((pct) => { if (barOpen) prep('progress', pct); });
+    const ok = await Promise.race([adgPending, sleep(20000).then(() => 'timeout')]);
+    barOpen = false;
+    if (ok === 'timeout') adgLog('download lento (mais de 20 s); abrindo o navegador agora e carregando o AdGuard quando terminar');
+    prep('end', 100);
+  }
+
+  const win = windowFor(opts && opts.h);
   const token = 'DNDK-' + crypto.randomBytes(5).toString('hex');
   const profileDir = path.join(app.getPath('userData'), 'chrome-profile');
   fs.mkdirSync(profileDir, { recursive: true });
@@ -262,17 +375,16 @@ async function startSession(sender, url) {
     '--disable-blink-features=AutomationControlled',
     '--test-type',
     '--app=data:text/html,<title>' + token + '</title><body style="background:%23000">',
-    '--window-size=1936,1119', '--window-position=30,20',
+    '--window-size=' + (win.w + FRAME_W) + ',' + (win.h + FRAME_H), '--window-position=30,20',
     '--no-first-run', '--no-default-browser-check',
     '--disable-gpu',
     '--autoplay-policy=no-user-gesture-required',
     '--disable-backgrounding-occluded-windows', '--disable-renderer-backgrounding',
     '--disable-background-timer-throttling',
   ];
-  const adg = adguardDir();
-  if (fs.existsSync(path.join(adg, 'manifest.json'))) {
-    args.push('--load-extension=' + adg, '--disable-extensions-except=' + adg);
-  }
+  // O Chrome de marca (137+) ignora --load-extension. O que funciona é carregar a extensão pelo protocolo
+  // DevTools (Extensions.loadUnpacked), que exige --enable-unsafe-extension-debugging. A porta só escuta em 127.0.0.1.
+  args.push('--enable-unsafe-extension-debugging');
   if (process.platform === 'linux') {
     args.push('--enable-audio-output-capture');
   }
@@ -287,6 +399,9 @@ async function startSession(sender, url) {
     await new Promise((res, rej) => { ws.addEventListener('open', res); ws.addEventListener('error', () => rej(new Error('cdp connect'))); });
     s.cdp = new CDP(ws);
 
+    if (adguardDir()) await loadAdguard(s);
+    else if (adgPending) adgPending.then((ok) => { if (ok === true && cur === s && s.cdp) loadAdguard(s); }).catch(() => {});
+
     let target = null;
     for (let i = 0; i < 50 && !target; i++) {
       const { targetInfos } = await s.cdp.send('Target.getTargets');
@@ -298,6 +413,7 @@ async function startSession(sender, url) {
     s.sessionId = (await s.cdp.send('Target.attachToTarget', { targetId: target.targetId, flatten: true })).sessionId;
     await s.cdp.send('Page.enable', {}, s.sessionId);
     s.cdp.onEvent = (m) => {
+      if (s.onTarget && !m.sessionId) s.onTarget(m);
       if (m.sessionId !== s.sessionId || sender.isDestroyed()) return;
       if (m.method === 'Page.frameNavigated' && !m.params.frame.parentId) sender.send('browser-url', m.params.frame.url);
       else if (m.method === 'Page.navigatedWithinDocument') sender.send('browser-url', m.params.url);
@@ -329,6 +445,8 @@ async function startSession(sender, url) {
     return { ok: true, sourceId, startUrl: url || null, browser: found.name };
   } catch (e) {
     await stopSession(false);
+    // o perfil pode ainda estar preso ao Chrome anterior (parou e abriu logo em seguida): uma segunda tentativa resolve
+    if (!retried && /chrome exited/.test(String(e && e.message))) { await sleep(1500); return startSession(sender, url, opts, true); }
     return { error: e.message || 'failed' };
   }
 }
@@ -343,6 +461,7 @@ async function viewport(s) {
 }
 
 async function navigate(s, n) {
+  if (!s.cdp || !s.sessionId) return; // o Chrome ainda está abrindo
   const c = s.cdp, sid = s.sessionId;
   if (n.action === 'go') {
     if (!isWebUrl(n.url)) return;
@@ -403,6 +522,7 @@ const BTN = { left: 1, right: 2, middle: 4 };
 const clamp01 = (n) => Math.min(1, Math.max(0, Number(n) || 0));
 
 async function inputEvent(s, m) {
+  if (!s.cdp || !s.sessionId) return;
   const c = s.cdp, sid = s.sessionId;
   const mods = (m.mods | 0) & 15;
   if (m.t === 'move' || m.t === 'down' || m.t === 'up' || m.t === 'wheel') {
@@ -448,7 +568,26 @@ function registerBrowserIpc() {
       return { ok: false, error: err.message };
     }
   });
-  ipcMain.handle('browser-start', (e, url) => startSession(e.sender, url));
+  ipcMain.handle('browser-start', (e, url, opts) => startSession(e.sender, url, opts));
+  // a resolução escolhida na Qualidade vira o tamanho real da janela: 1440p captura de fato 2560x1440
+  ipcMain.handle('browser-resize', async (_e, h) => {
+    if (!cur || !cur.windowId) return false;
+    const s = cur, w = windowFor(h);
+    try {
+      let bw = w.w, bh = w.h + TITLE_H;
+      for (let i = 0; i < 3; i++) {
+        await s.cdp.send('Browser.setWindowBounds', { windowId: s.windowId, bounds: { windowState: 'normal', width: bw, height: bh } });
+        await sleep(350);
+        const m = await s.cdp.send('Page.getLayoutMetrics', {}, s.sessionId);
+        const v = m.cssLayoutViewport || m.cssVisualViewport;
+        const dw = w.w - v.clientWidth, dh = w.h - v.clientHeight;
+        if (Math.abs(dw) <= 1 && Math.abs(dh) <= 1) break;
+        bw += dw; bh += dh; // corrige a diferença da moldura até o viewport sair exato
+      }
+      s.vpAt = 0;
+      return true;
+    } catch (_) { return false; }
+  });
   ipcMain.handle('browser-stop', () => stopSession(false));
   ipcMain.handle('browser-nav', async (_e, n) => {
     if (!cur || !n || typeof n !== 'object') return false;
@@ -475,9 +614,9 @@ function registerBrowserIpc() {
     try { await cur.cdp.send('Runtime.evaluate', { expression: expr }, cur.sessionId); return true; } catch (_) { return false; }
   });
   app.on('before-quit', () => { stopSession(false); });
-  // AdGuard: baixa na inicialização e atualiza a cada hora
-  downloadAdGuard().catch(() => {});
-  setInterval(() => downloadAdGuard().catch(() => {}), 3600 * 1000);
+  // AdGuard: baixa na inicialização (ou tenta de novo se falhou) e confere versão nova a cada hora
+  ensureAdGuard();
+  setInterval(() => ensureAdGuard(), 3600 * 1000);
 }
 
-module.exports = { registerBrowserIpc, findChrome, findBrowser, isWebUrl, startSession, stopSession, navigate, inputEvent, route, getCurrent: () => cur };
+module.exports = { registerBrowserIpc, ensureAdGuard, adguardDir, adguardTag, findChrome, findBrowser, isWebUrl, startSession, stopSession, navigate, inputEvent, route, getCurrent: () => cur };

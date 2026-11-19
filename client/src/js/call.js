@@ -5,7 +5,7 @@
   const FALLBACK_ICE = [{ urls: ['stun:stun.l.google.com:19302'] }];
   const SPEAK_ON = 0.035;
   const SPEAK_HOLD_MS = 450;
-  const BITRATE = { '720_30': 2500000, '720_60': 4000000, '1080_30': 6000000, '1080_60': 9000000, '1440_30': 10000000, '1440_60': 14000000 };
+  const BITRATE = { '720_30': 3500000, '720_60': 5500000, '1080_30': 8000000, '1080_60': 12000000, '1440_30': 14000000, '1440_60': 20000000 };
   const QKEY = 'dk_quality';
   function loadQuality() {
     try {
@@ -13,6 +13,16 @@
       if (q && [720, 1080, 1440].includes(+q.h) && [30, 60].includes(+q.fps)) return { h: +q.h, fps: +q.fps };
     } catch (_) {}
     return { h: 1080, fps: 30 };
+  }
+  /* opções avançadas (valem para tela e navegador): taxa de dados manual, modo de conteúdo e codec */
+  const OKEY = 'dk_qopts';
+  const MODES = ['auto', 'text', 'motion'], CODECS = ['auto', 'h264', 'vp9'];
+  function loadOpts() {
+    try {
+      const o = JSON.parse(localStorage.getItem(OKEY) || 'null');
+      if (o) return { bitrate: Math.min(30, Math.max(0, Math.round(+o.bitrate || 0))), mode: MODES.includes(o.mode) ? o.mode : 'auto', codec: CODECS.includes(o.codec) ? o.codec : 'auto' };
+    } catch (_) {}
+    return { bitrate: 0, mode: 'auto', codec: 'auto' };
   }
 
   class CallManager {
@@ -38,12 +48,13 @@
       this._speakTimer = null;
       this._ice = null;
       this.quality = loadQuality();
+    this.opts = loadOpts(); // bitrate em Mbps (0 = automático), mode: auto|text|motion, codec: auto|h264|vp9
       this.sendStats = null;
       this._strain = 0;
       this._lastWarn = 0;
     }
 
-    static bitrate(q) { return BITRATE[q.h + '_' + q.fps] || 6000000; }
+    static bitrate(q, opts) { return opts && opts.bitrate > 0 ? opts.bitrate * 1e6 : (BITRATE[q.h + '_' + q.fps] || 6000000); }
     get inCall() { return !!this.channelId; }
     get cameraOn() { return !!this.camTrack; }
     get screenOn() { return !!this.screenStream; }
@@ -182,7 +193,7 @@
         if (!this.inCall) { stream.getTracks().forEach(t => t.stop()); return; }
         this.screenStream = stream;
         const v = stream.getVideoTracks()[0];
-        if (v) { v.onended = () => this.setScreen(false); v.contentHint = 'detail'; }
+        if (v) { v.onended = () => this.setScreen(false); v.contentHint = this.hint(); }
         for (const p of this.peers.values()) this._attachScreen(p);
       } else {
         const s = this.screenStream;
@@ -388,15 +399,25 @@
     _hdEncoding(track) {
       const q = this.quality;
       const st = (track && track.getSettings && track.getSettings()) || {};
-      const scale = st.height ? Math.max(1, Math.round((st.height / q.h) * 100) / 100) : 1;
-      return { maxBitrate: CallManager.bitrate(q), maxFramerate: q.fps, scaleResolutionDownBy: scale };
+      // navegador compartilhado: o canvas já foi dimensionado para a qualidade; getSettings() do captureStream não acompanha a troca
+      // de tamanho e fazia o codificador reduzir uma segunda vez (720p virava 480p)
+      const bt = this.browserStream && this.browserStream.getVideoTracks()[0];
+      let scale = 1;
+      if (!(bt && track === bt) && st.width && st.height) {
+        // tela/janela: reduz até a altura escolhida, com a largura de saída múltipla de 4 (senão o WebRTC reamostra de novo e borra)
+        const r = Math.min(1, q.h / st.height);
+        const ow = Math.max(4, Math.round((st.width * r) / 4) * 4);
+        scale = Math.max(1, st.width / (ow + 0.001));
+      }
+      return { maxBitrate: CallManager.bitrate(q, this.opts), maxFramerate: q.fps, scaleResolutionDownBy: scale };
     }
 
     _preferCodecs(tr) {
       try {
         const caps = RTCRtpSender.getCapabilities('video');
         if (!caps || !tr.setCodecPreferences) return;
-        const rank = m => (/vp9/i.test(m) ? 0 : /h264/i.test(m) ? 1 : /vp8/i.test(m) ? 2 : /av1/i.test(m) ? 3 : 4);
+        const order = { auto: ['vp9', 'h264', 'vp8', 'av1'], h264: ['h264', 'vp9', 'vp8', 'av1'], vp9: ['vp9', 'h264', 'vp8', 'av1'] }[this.opts.codec] || ['vp9', 'h264', 'vp8', 'av1'];
+        const rank = m => { const i = order.findIndex(c => String(m).toLowerCase() === 'video/' + c); return i < 0 ? 9 : i; };
         tr.setCodecPreferences([...caps.codecs].sort((a, b) => rank(a.mimeType) - rank(b.mimeType)));
       } catch (_) {}
     }
@@ -407,7 +428,7 @@
         const params = sender.getParameters();
         params.encodings = params.encodings && params.encodings.length ? params.encodings : [{}];
         Object.assign(params.encodings[0], this._hdEncoding(track || sender.track));
-        params.degradationPreference = 'maintain-resolution';
+        params.degradationPreference = this.opts.mode === 'motion' ? 'maintain-framerate' : 'maintain-resolution';
         sender.setParameters(params).catch(() => {});
       } catch (_) {}
     }
@@ -426,6 +447,50 @@
       this._strain = 0;
       try { this.o.onQuality && this.o.onQuality(this.quality); } catch (_) {}
       this._changed();
+    }
+
+    /** dica de conteúdo das faixas de vídeo: 'detail' favorece nitidez, 'motion' favorece fluidez */
+    hint() { return this.opts.mode === 'motion' ? 'motion' : 'detail'; }
+
+    applyHints() {
+      const h = this.hint();
+      for (const st of [this.screenStream, this.browserStream]) {
+        const t = st && st.getVideoTracks()[0];
+        if (t) { try { t.contentHint = h; } catch (_) {} }
+      }
+    }
+
+    /** taxa de dados, modo e codec: aplicados ao vivo, sem derrubar a conexão */
+    setOptions(o) {
+      o = o || {};
+      const prevCodec = this.opts.codec;
+      if ('bitrate' in o) this.opts.bitrate = Math.min(30, Math.max(0, Math.round(+o.bitrate || 0)));
+      if (MODES.includes(o.mode)) this.opts.mode = o.mode;
+      if (CODECS.includes(o.codec)) this.opts.codec = o.codec;
+      try { localStorage.setItem(OKEY, JSON.stringify(this.opts)); } catch (_) {}
+      this.applyHints();
+      for (const p of this.peers.values()) {
+        [...(p.screenSenders || []), ...(p.browserSenders || [])].forEach(snd => {
+          if (snd.track && snd.track.kind === 'video') this._tuneHd(snd, snd.track);
+        });
+      }
+      if (this.opts.codec !== prevCodec) this._reapplyCodecs();
+      this._strain = 0;
+      try { this.o.onQuality && this.o.onQuality(this.quality); } catch (_) {}
+      this._changed();
+    }
+
+    /** troca de codec: reordena as preferências e renegocia (o par escolhe o primeiro codec comum) */
+    _reapplyCodecs() {
+      for (const p of this.peers.values()) {
+        let changed = false;
+        [...(p.screenSenders || []), ...(p.browserSenders || [])].forEach(snd => {
+          if (!snd.track || snd.track.kind !== 'video') return;
+          const tr = p.pc.getTransceivers().find(t => t.sender === snd);
+          if (tr) { this._preferCodecs(tr); changed = true; }
+        });
+        if (changed && typeof p.pc.onnegotiationneeded === 'function') p.pc.onnegotiationneeded();
+      }
     }
 
     /** próximo patamar abaixo, ou null se já está no mínimo */
@@ -456,11 +521,16 @@
         [...(p.screenSenders || []), ...(p.browserSenders || [])].forEach(s => { if (s.track && s.track.kind === 'video') snds.push(s); });
       }
       if (!snds.length) { this.sendStats = null; this._prev = null; return; }
-      let bytes = 0, fps = 0, w = 0, h = 0, limit = 'none';
+      let bytes = 0, fps = 0, w = 0, h = 0, limit = 'none', codec = '', enc = '', hw = false;
       for (const s of snds) {
         try {
-          (await s.getStats()).forEach(r => {
+          const rep = await s.getStats();
+          const codecs = {};
+          rep.forEach(r => { if (r.type === 'codec') codecs[r.id] = r.mimeType; });
+          rep.forEach(r => {
             if (r.type === 'outbound-rtp' && r.kind === 'video') {
+              codec = String(codecs[r.codecId] || codec).replace(/^video\//i, '');
+              enc = r.encoderImplementation || enc; hw = hw || !!r.powerEfficientEncoder;
               bytes += r.bytesSent || 0;
               if ((r.framesPerSecond || 0) > fps) fps = r.framesPerSecond;
               w = r.frameWidth || w; h = r.frameHeight || h;
@@ -472,7 +542,7 @@
       const now = performance.now();
       const bps = this._prev ? Math.max(0, (bytes - this._prev.bytes) * 8 / ((now - this._prev.t) / 1000)) : 0;
       this._prev = { bytes, t: now };
-      this.sendStats = { bps, fps, w, h, limit, peers: snds.length };
+      this.sendStats = { bps, fps, w, h, limit, peers: snds.length, codec, enc, hw };
       this._evalStrain(this.sendStats);
     }
 
