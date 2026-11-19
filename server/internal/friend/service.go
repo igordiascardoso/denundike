@@ -3,6 +3,7 @@ package friend
 import (
 	"database/sql"
 	"errors"
+	"strings"
 
 	"github.com/google/uuid"
 )
@@ -91,8 +92,7 @@ func ListFriends(db *sql.DB, userID string) ([]FriendEntry, error) {
 	var entries []FriendEntry
 	for rows.Next() {
 		var e FriendEntry
-		var id string
-		if err := rows.Scan(&id, &e.UserID, &e.Direction, &e.Login, &e.Status); err != nil {
+		if err := rows.Scan(&e.ID, &e.UserID, &e.Direction, &e.Login, &e.Status); err != nil {
 			return nil, err
 		}
 		entries = append(entries, e)
@@ -105,19 +105,5 @@ func ListFriends(db *sql.DB, userID string) ([]FriendEntry, error) {
 
 // isUniqueConstraint returns true when err is a SQLite UNIQUE constraint violation.
 func isUniqueConstraint(err error) bool {
-	return err != nil && (contains(err.Error(), "UNIQUE constraint failed") ||
-		contains(err.Error(), "constraint failed: friendships."))
-}
-
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(s) > 0 && indexOf(s, substr) >= 0)
-}
-
-func indexOf(s, substr string) int {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return i
-		}
-	}
-	return -1
+	return err != nil && strings.Contains(err.Error(), "UNIQUE constraint failed")
 }

@@ -135,18 +135,16 @@ func TestAcceptFriend(t *testing.T) {
 		"login": "bob3" + suffix,
 	}, aliceToken)
 
-	// Bob lists friends to get the friendship ID.
+	// Bob lists friends to get the friendship ID from JSON.
 	listResp := doGet(t, srv, "/api/friends", bobToken)
 	var entries []map[string]any
 	json.NewDecoder(listResp.Body).Decode(&entries)
 	if len(entries) == 0 {
 		t.Fatal("Bob has no pending friends")
 	}
-	// The entry id is not returned in ListFriends; we need to fetch from DB.
-	var friendshipID string
-	database.QueryRow(`SELECT id FROM friendships LIMIT 1`).Scan(&friendshipID)
+	friendshipID, _ := entries[0]["id"].(string)
 	if friendshipID == "" {
-		t.Fatal("no friendship row found")
+		t.Fatal("no friendship id in response")
 	}
 
 	// Bob accepts.
@@ -181,11 +179,17 @@ func TestListFriends(t *testing.T) {
 	doPost(t, srv, "/api/friends/request", map[string]string{"login": "bob4" + suffix}, aliceToken)
 	doPost(t, srv, "/api/friends/request", map[string]string{"login": "carol4" + suffix}, aliceToken)
 
-	// Bob accepts Alice's request.
-	var friendshipID string
-	database.QueryRow(
-		`SELECT id FROM friendships WHERE status = 'pending' LIMIT 1`,
-	).Scan(&friendshipID)
+	// Bob lists to get the friendship ID from JSON, then accepts.
+	bobList := doGet(t, srv, "/api/friends", bobToken)
+	var bobEntries []map[string]any
+	json.NewDecoder(bobList.Body).Decode(&bobEntries)
+	if len(bobEntries) == 0 {
+		t.Fatal("Bob has no pending entries")
+	}
+	friendshipID, _ := bobEntries[0]["id"].(string)
+	if friendshipID == "" {
+		t.Fatal("no friendship id in bob's list")
+	}
 	doPost(t, srv, "/api/friends/"+friendshipID+"/accept", nil, bobToken)
 
 	// Alice should see 2 entries.
