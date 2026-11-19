@@ -5,6 +5,7 @@ const { autoUpdater } = require('electron-updater');
 const { setupMedia, registerMediaIpc } = require('./media');
 const { registerBrowserIpc } = require('./browserhost');
 
+app.setName('Denundike');
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 // Sem isso o Windows agrupa a janela/ícone da barra de tarefas sob o Electron genérico.
 if (process.platform === 'win32') app.setAppUserModelId('com.denundike.app');
