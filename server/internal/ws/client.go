@@ -35,6 +35,9 @@ type Client struct {
 	userID    string
 	login     string
 	db        *sql.DB
+
+	inputWin time.Time
+	inputN   int
 }
 
 // HandleWS upgrades the HTTP connection to WebSocket after authenticating the

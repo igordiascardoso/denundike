@@ -25,6 +25,7 @@ type voiceUser struct {
 type voiceRoom struct {
 	groupID string
 	members map[string]*voiceMember // userID → member
+	browser *browserSession
 }
 
 type voiceMember struct {
@@ -65,6 +66,16 @@ func (c *Client) handleFrame(raw []byte) {
 		c.hub.voiceSignal(c, in)
 	case "voice_media":
 		c.hub.voiceMedia(c, in)
+	case "browser_start":
+		c.hub.browserStart(c, in)
+	case "browser_stop":
+		c.hub.browserStop(c, in)
+	case "browser_url":
+		c.hub.browserURL(c, in)
+	case "browser_nav":
+		c.hub.browserCmd(c, in, "nav")
+	case "browser_input":
+		c.hub.browserCmd(c, in, "input")
 	}
 }
 
@@ -120,6 +131,10 @@ func (c *Client) voiceJoin(channelID string) {
 	}
 	room.members[c.userID] = &voiceMember{user: me, conn: c}
 	h.voice.where[c.userID] = channelID
+	var bstate map[string]any
+	if room.browser != nil {
+		bstate = browserStateMsg(channelID, room.browser)
+	}
 	h.voice.mu.Unlock()
 
 	sort.Slice(peers, func(i, j int) bool { return peers[i].Login < peers[j].Login })
@@ -128,6 +143,9 @@ func (c *Client) voiceJoin(channelID string) {
 	}
 	h.NotifyUsers([]string{c.userID}, map[string]any{"type": "voice_peers", "channel_id": channelID, "peers": peers})
 	h.NotifyUsers(peerIDs, map[string]any{"type": "voice_joined", "channel_id": channelID, "user_id": c.userID, "login": c.login})
+	if bstate != nil {
+		h.NotifyUsers([]string{c.userID}, bstate)
+	}
 	h.voiceBroadcastState(c.db, channelID, groupID)
 }
 
@@ -158,12 +176,20 @@ func (h *Hub) voiceLeaveUser(db *sql.DB, userID string, only *Client) {
 	for id := range room.members {
 		rest = append(rest, id)
 	}
+	var bstop map[string]any
+	if room.browser != nil && room.browser.hostID == userID {
+		room.browser = nil
+		bstop = browserStateMsg(channelID, nil)
+	}
 	if len(room.members) == 0 {
 		delete(h.voice.rooms, channelID)
 	}
 	h.voice.mu.Unlock()
 
 	h.NotifyUsers(rest, map[string]any{"type": "voice_left", "channel_id": channelID, "user_id": userID})
+	if bstop != nil {
+		h.NotifyUsers(rest, bstop)
+	}
 	h.voiceBroadcastState(db, channelID, groupID)
 }
 
