@@ -1,0 +1,10 @@
+appId: com.denundike.app
+productName: Denundike
+publish:
+  provider: github
+  owner: igordiascardoso
+  repo: denundike
+win:
+  target: nsis
+linux:
+  target: AppImage

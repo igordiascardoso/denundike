@@ -36,4 +36,8 @@ contextBridge.exposeInMainWorld('bridge', {
     onReconnect: (cb) => wsClient.onReconnect(cb),
     disconnect: () => wsClient.disconnect(),
   },
+
+  onUpdateAvailable: (cb) => ipcRenderer.on('update-available', () => cb()),
+  onUpdateDownloaded: (cb) => ipcRenderer.on('update-downloaded', () => cb()),
+  installUpdate: () => ipcRenderer.send('install-update'),
 });

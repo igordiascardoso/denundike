@@ -5,9 +5,15 @@
   "main": "main.js",
   "private": true,
   "scripts": {
-    "start": "electron ."
+    "start": "electron .",
+    "build": "electron-builder --win",
+    "build:linux": "electron-builder --linux"
   },
   "dependencies": {
-    "electron": "^45.3.4"
+    "electron": "^45.3.4",
+    "electron-updater": "^6.8.11"
+  },
+  "devDependencies": {
+    "electron-builder": "^26.18.0"
   }
 }

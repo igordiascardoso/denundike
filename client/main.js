@@ -1,5 +1,6 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
+const { autoUpdater } = require('electron-updater');
 
 let loginWin = null;
 let mainWin = null;
@@ -54,7 +55,22 @@ function createLoginWindow() {
   });
 }
 
-app.whenReady().then(createLoginWindow);
+app.whenReady().then(() => {
+  createLoginWindow();
+  autoUpdater.checkForUpdatesAndNotify();
+});
+
+autoUpdater.on('update-available', () => {
+  mainWin?.webContents.send('update-available');
+});
+
+autoUpdater.on('update-downloaded', () => {
+  mainWin?.webContents.send('update-downloaded');
+});
+
+ipcMain.on('install-update', () => {
+  autoUpdater.quitAndInstall();
+});
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
