@@ -528,7 +528,7 @@ ipcMain.handle('win-state', (e) => {
 });
 
 // Só páginas de download conhecidas abrem no navegador do sistema.
-const EXTERNAL_OK = ['https://www.google.com/chrome', 'https://www.microsoft.com/edge', 'https://github.com/igordiascardoso/denundike-releases'];
+const EXTERNAL_OK = ['https://www.google.com/chrome', 'https://github.com/igordiascardoso/denundike-releases'];
 ipcMain.handle('open-external', (_e, url) => {
   const u = String(url || '');
   if (!EXTERNAL_OK.some((p) => u === p || u.startsWith(p + '/') || u.startsWith(p + '?'))) return false;
