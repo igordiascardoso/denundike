@@ -1118,10 +1118,12 @@ function connectWS() {
         const m = ev.message;
         if (!m || m.user_id === USER.id) return;
         if (activeChannel && ev.channel_id === activeChannel.id) appendMessage(m);
+        { const ch = chanById.get(ev.channel_id); osNotify('msg:' + ev.channel_id, '@' + (m.login || '?') + (ch && ch.name ? ' em #' + ch.name : ''), m.text); }
         break;
       }
       case 'friend_request':
         toast('@' + ev.login + ' quer ser seu amigo');
+        osNotify('fr:' + ev.login, 'Novo pedido de amizade', '@' + ev.login + ' quer ser seu amigo');
         refreshSocial();
         break;
       case 'friend_update':
@@ -1132,6 +1134,7 @@ function connectWS() {
         break;
       case 'group_invite':
         toast('@' + ev.inviter + ' convidou você para "' + ev.group_name + '"');
+        osNotify('gi:' + ev.group_name + ':' + ev.inviter, 'Convite para um grupo', '@' + ev.inviter + ' convidou você para "' + ev.group_name + '"');
         refreshSocial();
         break;
       case 'voice_state': {
@@ -1426,7 +1429,7 @@ const call = new CallManager({
   me: { id: USER ? USER.id : '', login: USER ? USER.login : '' },
   send: obj => window.bridge.ws.send(obj),
   getIce: async () => (await api('GET', '/api/ice')).iceServers,
-  onChange: () => { renderCall(); if (bshare) bshare.render(); if (window.renderView) renderView(); },
+  onChange: () => { renderCall(); reportCallState(); if (bshare) bshare.render(); if (window.renderView) renderView(); },
   onLeave: () => { if (bshare) bshare.reset(); },
   onQuality: () => { if (bshare) bshare.applyQuality(); syncQuality(); },
   onStrain: info => showStrain(info),
@@ -1434,6 +1437,19 @@ const call = new CallManager({
   pickScreen: pickScreenSource,
 });
 window.__call = call;
+
+/* Bandeja do sistema: o menu dela espelha a chamada e age sobre ela. */
+function reportCallState() {
+  try { window.bridge.app.callState({ inCall: call.inCall, muted: call.muted, deafened: call.deafened }); } catch (_) {}
+}
+window.bridge.app.onTrayAction(act => {
+  if (act === 'toggle-mute') call.setMuted(!call.muted);
+  else if (act === 'toggle-deafen') call.setDeafened(!call.deafened);
+  else if (act === 'leave-call') call.leave();
+});
+function osNotify(key, title, body) {
+  try { window.bridge.app.notify({ key, title, body }); } catch (_) {}
+}
 bshare = new BrowserShare({
   me: { id: USER ? USER.id : '', login: USER ? USER.login : '' },
   call,

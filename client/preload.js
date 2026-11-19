@@ -40,6 +40,13 @@ contextBridge.exposeInMainWorld('bridge', {
 
   openExternal: (url) => ipcRenderer.invoke('open-external', url),
 
+  // Bandeja do sistema e avisos nativos (o processo principal decide se mostra).
+  app: {
+    callState: (s) => ipcRenderer.send('app-call-state', s),
+    notify: (n) => ipcRenderer.send('app-notify', n),
+    onTrayAction: (cb) => ipcRenderer.on('tray-action', (_e, a) => cb(a)),
+  },
+
   screen: {
     sources: () => ipcRenderer.invoke('screen-sources'),
     choose: (id, audio) => ipcRenderer.invoke('screen-choose', { id, audio }),
