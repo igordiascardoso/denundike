@@ -4,6 +4,8 @@ const { autoUpdater } = require('electron-updater');
 
 let loginWin = null;
 let mainWin = null;
+let pendingUpdate = false;
+let pendingUpdateDownloaded = false;
 
 function createMainWindow() {
   mainWin = new BrowserWindow({
@@ -20,6 +22,18 @@ function createMainWindow() {
   });
 
   mainWin.loadFile(path.join(__dirname, 'src', 'app.html'));
+
+  // Flush any update events that arrived before the main window existed
+  mainWin.webContents.once('did-finish-load', () => {
+    if (pendingUpdate) {
+      mainWin.webContents.send('update-available');
+      pendingUpdate = false;
+    }
+    if (pendingUpdateDownloaded) {
+      mainWin.webContents.send('update-downloaded');
+      pendingUpdateDownloaded = false;
+    }
+  });
 
   mainWin.on('closed', () => {
     mainWin = null;
@@ -61,11 +75,13 @@ app.whenReady().then(() => {
 });
 
 autoUpdater.on('update-available', () => {
-  mainWin?.webContents.send('update-available');
+  if (mainWin) mainWin.webContents.send('update-available');
+  else pendingUpdate = true;
 });
 
 autoUpdater.on('update-downloaded', () => {
-  mainWin?.webContents.send('update-downloaded');
+  if (mainWin) mainWin.webContents.send('update-downloaded');
+  else pendingUpdateDownloaded = true;
 });
 
 ipcMain.on('install-update', () => {
