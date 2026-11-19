@@ -1,0 +1,22 @@
+services:
+  denundike:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      - denundike-data:/data
+    environment:
+      DB_PATH: /data/denundike.db
+      JWT_SECRET: ${JWT_SECRET:-changeme}
+      CORS_ORIGINS: ${CORS_ORIGINS:-app://denundike,file://}
+      PORT: ${PORT:-8080}
+      ADMIN_INVITE_CODE: ${ADMIN_INVITE_CODE:-changeme}
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+          cpus: "0.5"
+    restart: unless-stopped
+
+volumes:
+  denundike-data:
