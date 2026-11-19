@@ -20,12 +20,27 @@ var api = {
    * Registro de nova conta.
    * @returns {Promise<{user: object}>}
    */
-  register: function (login, email, password, inviteCode) {
+  register: function (login, email, password, inviteCode, displayName) {
     return window.bridge.api('POST', '/api/auth/register', {
       login: login,
       email: email,
+      display_name: displayName || '',
       password: password,
       invite_code: inviteCode,
+    });
+  },
+
+  /** Sessão salva: valida o token guardado. Rejeita com 401 se expirou. */
+  me: function (token) {
+    return window.bridge.api('GET', '/api/auth/me', null, token);
+  },
+
+  /** Redefine a senha com o código de recuperação; devolve {token,user,recovery_code}. */
+  recover: function (login, recoveryCode, newPassword) {
+    return window.bridge.api('POST', '/api/auth/recover', {
+      login: login,
+      recovery_code: recoveryCode,
+      new_password: newPassword,
     });
   },
 

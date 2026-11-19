@@ -54,6 +54,8 @@ function createLoginWindow() {
     minWidth: 400,
     minHeight: 600,
     title: 'Denundike · Entrar',
+    frame: false,
+    backgroundColor: '#090C0D',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -68,14 +70,18 @@ function createLoginWindow() {
     loginWin = null;
   });
 
-  // Register once per login window so handlers don't accumulate on macOS reactivation
-  ipcMain.once('open-main', () => {
-    createMainWindow();
-    if (loginWin) {
-      loginWin.close();
-    }
-  });
 }
+
+// Persistent: after "Sair" the main window itself shows the login page and may need to re-enter.
+ipcMain.on('open-main', (e) => {
+  const sender = BrowserWindow.fromWebContents(e.sender);
+  if (mainWin && sender === mainWin) {
+    mainWin.loadFile(path.join(__dirname, 'src', 'app.html'));
+    return;
+  }
+  if (!mainWin) createMainWindow();
+  if (loginWin && !loginWin.isDestroyed()) loginWin.close();
+});
 
 app.whenReady().then(() => {
   Menu.setApplicationMenu(null);

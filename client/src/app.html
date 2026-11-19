@@ -248,6 +248,22 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 .src.on{border-color:var(--accent)}
 .chk{display:flex;gap:10px;align-items:flex-start;color:var(--muted);font-size:13px}.chk input{margin-top:3px;accent-color:var(--accent)}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+.spane[hidden]{display:none}
+.stat{display:grid;gap:10px;padding:16px;background:var(--bg1);border:1px solid var(--line);border-radius:var(--r-m)}
+.stat .top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.stat .lvl{font:800 22px var(--display)}.stat small{color:var(--muted)}
+.bar{height:8px;border-radius:5px;background:var(--bg4);overflow:hidden}.bar i{display:block;height:100%;background:var(--accent);border-radius:5px;transition:width .5s}
+.badges{display:flex;flex-wrap:wrap;gap:6px}
+.inv{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:var(--r-s);background:var(--bg1)}
+.inv code{font-family:var(--mono);color:var(--accent);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.inv.dead code{color:var(--muted);text-decoration:line-through}
+.rk{display:grid;grid-template-columns:34px auto 1fr auto auto;align-items:center;gap:12px;padding:9px 12px;border-radius:var(--r-s);border:1px solid transparent}
+.rk.me{background:var(--accent-soft);border-color:var(--accent)}
+.rk .pos{font:800 15px var(--display);color:var(--muted);text-align:center}.rk.top3 .pos{color:var(--accent)}
+.rk .nm{min-width:0}.rk .nm b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.rk .nm small{color:var(--muted)}
+.rk .pt{font:800 15px var(--display);min-width:48px;text-align:right}
+.rcodebox{font:500 22px var(--mono);letter-spacing:.07em;text-align:center;background:var(--bg0);border:1px dashed var(--accent);border-radius:var(--r-m);padding:18px 8px;color:var(--accent);user-select:all;word-break:break-all}
+.chk2{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:13.5px;cursor:pointer}.chk2 input{accent-color:var(--accent);width:16px;height:16px}
 </style>
 </head>
 <body>
@@ -497,6 +513,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
   <div class="pcard">
     <span class="av xl c1" id="profAv">?<span class="st online" style="width:16px;height:16px;border-color:var(--bg2)"></span></span>
     <div><h2 id="t-prof" style="font-size:24px">—</h2><small id="profLogin" style="color:var(--muted)">—</small></div>
+    <div id="profExtra" style="display:grid;gap:8px"></div>
     <div style="display:flex;gap:8px;margin-top:6px"><button class="btn" data-close>Fechar</button></div>
   </div>
 </div></div>
@@ -505,6 +522,9 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
   <nav class="snav" aria-label="Seções">
     <h3>Configurações</h3>
     <button role="tab" aria-selected="true" data-sp="acc">Minha conta</button>
+    <button role="tab" aria-selected="false" data-sp="inv">Meus convites</button>
+    <button role="tab" aria-selected="false" data-sp="rank">Ranking</button>
+    <button role="tab" aria-selected="false" data-sp="sec">Segurança</button>
     <button class="out" data-act="logout">Sair da conta</button>
   </nav>
   <div style="position:relative;overflow:auto">
@@ -516,6 +536,35 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
         <div style="flex:1"><b class="disp" style="font-size:18px" id="settingsName">—</b><small style="display:block;color:var(--muted)" id="settingsLogin">—</small></div>
       </div>
     </div>
+    <div class="spane" id="sp-inv" hidden>
+      <h2>Meus convites</h2>
+      <p style="color:var(--muted)">Convide amigos. Cada pessoa que cria conta com o seu convite rende pontos e sobe seu nível.</p>
+      <div class="stat" id="invStat"><small>Carregando…</small></div>
+      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap"><button class="btn pri" id="invNew" type="button">Gerar convite</button><small id="invQuota" style="color:var(--muted)"></small></div>
+      <div id="invList" style="display:grid;gap:8px"></div>
+    </div>
+    <div class="spane" id="sp-rank" hidden>
+      <h2>Ranking</h2>
+      <p style="color:var(--muted)">Quem mais trouxe gente para o Denundike. +10 pontos por amigo que cria conta e +5 quando ele manda a primeira mensagem.</p>
+      <div id="rankList" style="display:grid;gap:4px"><small style="color:var(--muted)">Carregando…</small></div>
+    </div>
+    <div class="spane" id="sp-sec" hidden>
+      <h2>Segurança</h2>
+      <p style="color:var(--muted)">O código de recuperação é a única forma de redefinir a senha se você esquecer. Gerar um novo invalida o anterior.</p>
+      <label class="l">Senha atual<input class="in" id="secPw" type="password" autocomplete="current-password" placeholder="Digite sua senha"></label>
+      <button class="btn pri" id="secNew" type="button">Gerar novo código de recuperação</button>
+    </div>
+
+  </div>
+</div></div>
+
+<div class="ov" id="m-rcode" hidden data-sticky><div class="modal" role="dialog" aria-modal="true" aria-labelledby="t-rc">
+  <div class="mh"><h2 id="t-rc">Guarde seu código de recuperação</h2><p id="rcSub">É a única forma de recuperar sua senha. Ele aparece só desta vez.</p></div>
+  <div class="mb">
+    <div class="rcodebox" id="rcBox">XXXX-XXXX-XXXX-XXXX</div>
+    <div class="copyrow"><button class="btn" id="rcCopy" type="button">Copiar</button><button class="btn" id="rcDl" type="button">Baixar .txt</button></div>
+    <label class="chk2"><input type="checkbox" id="rcOk"><span>Guardei meu código em um lugar seguro</span></label>
+    <button class="btn pri" id="rcDone" type="button" disabled>Continuar</button>
   </div>
 </div></div>
 
@@ -548,6 +597,9 @@ const ERR_TXT = {
   'invite not found': 'Esse convite não existe mais.',
   'friendship not found': 'Esse pedido não existe mais.',
   'forbidden': 'Você não tem permissão para isso.',
+  'invite quota reached': 'Você já tem o máximo de convites pendentes do seu nível. Espere alguém usar um.',
+  'invalid credentials': 'Senha atual incorreta.',
+  'too many attempts': 'Muitas tentativas. Tente de novo em 15 minutos.',
 };
 function errMsg(e) {
   const m = (e && e.message) || '';
@@ -575,6 +627,7 @@ if (!TOKEN || !USER) {
 const SERVER = window.bridge.serverUrl;
 
 function forceLogout() {
+  if (USER && USER.login) localStorage.setItem('denundike_last_login', USER.login);
   localStorage.removeItem('denundike_token');
   localStorage.removeItem('denundike_user');
   try { call.leave(); } catch (_) {}
@@ -583,7 +636,7 @@ function forceLogout() {
 }
 
 /* ── API autenticada (com timeout, nunca fica pendurada) ── */
-async function api(method, path, body) {
+async function api(method, path, body, opt) {
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), 15000);
   try {
@@ -594,7 +647,7 @@ async function api(method, path, body) {
     };
     if (body && method !== 'GET') opts.body = JSON.stringify(body);
     const res = await fetch(SERVER + path, opts);
-    if (res.status === 401) { forceLogout(); throw new Error('Sessão expirada. Entre de novo.'); }
+    if (res.status === 401 && !(opt && opt.keep)) { forceLogout(); throw new Error('Sessão expirada. Entre de novo.'); }
     if (!res.ok) throw new Error((await res.text()).trim() || res.statusText);
     const txt = await res.text();
     return txt ? JSON.parse(txt) : null;
@@ -677,7 +730,7 @@ function openM(id, from) {
   (m.querySelector('input:not([readonly])') || m.querySelector('.btn.pri') || m.querySelector('button')).focus();
 }
 function closeM() {
-  $$('.ov').forEach(o => { if (!o.hidden) { o.hidden = true; _opener && _opener.focus && _opener.focus(); } });
+  $$('.ov').forEach(o => { if (!o.hidden && !o.hasAttribute('data-sticky')) { o.hidden = true; _opener && _opener.focus && _opener.focus(); } });
 }
 $$('.ov').forEach(o => o.addEventListener('mousedown', e => { if (e.target === o) closeM(); }));
 document.addEventListener('click', e => { if (e.target.closest('[data-close]')) closeM(); });
@@ -696,13 +749,13 @@ document.addEventListener('keydown', e => {
 });
 $('#addGroup').onclick = e => openM('m-group', e.currentTarget);
 document.addEventListener('click', e => {
-  const s = e.target.closest('[data-settings]'); if (s) openM('m-settings', s);
+  const s = e.target.closest('[data-settings]'); if (s) openSettings(s);
   const a = e.target.closest('[data-act]');
   if (a) {
     const k = a.dataset.act;
     hidePops();
-    if (k === 'profile')  openM('m-profile', $('#meBtn'));
-    if (k === 'settings') openM('m-settings', $('#meBtn'));
+    if (k === 'profile')  openProfile();
+    if (k === 'settings') openSettings($('#meBtn'));
     if (k === 'logout')   { closeM(); doLogout(); }
   }
 });
@@ -999,8 +1052,8 @@ async function loadMembers() {
   try {
     const members = await api('GET', '/api/groups/' + activeGroup.id + '/members');
     box.innerHTML = '<h3>Membros · ' + members.length + '</h3>' + members.map(m =>
-      `<div class="mrow"><span class="av ${avColor(m.id)}">${esc(initials(m.login))}</span>` +
-      `<div class="t"><b>${esc(m.login)}</b><small>@${esc(m.login)}</small></div>` +
+      `<div class="mrow"><span class="av ${avColor(m.id)}">${esc(initials(m.login))}<span class="st ${seenInfo(m.last_seen_at).online ? 'online' : 'offline'}"></span></span>` +
+      `<div class="t" data-prof="${esc(m.id)}" data-pl="${esc(m.login)}" data-ps="${esc(seenInfo(m.last_seen_at).iso)}" style="cursor:pointer"><b>${esc(m.login)}</b><small>@${esc(m.login)} · ${esc(seenInfo(m.last_seen_at).text)}</small></div>` +
       (m.is_owner ? '<span class="chip">Dono</span>' : '') + '</div>').join('');
   } catch (e) {
     box.innerHTML = '<h3>Membros</h3><div class="empty-s">Não foi possível carregar.</div>';
@@ -1084,10 +1137,24 @@ async function refreshSocial() {
   finally { _socialBusy = false; }
 }
 
-function frRow(login, id, sub, actions) {
+function seenInfo(iso) {
+  if (!iso) return { online: false, text: 'ainda não apareceu', iso: '' };
+  const d = Date.now() - new Date(iso).getTime();
+  if (d < 120000) return { online: true, text: 'Online', iso };
+  const m = Math.round(d / 60000);
+  if (m < 60) return { online: false, text: 'visto há ' + m + ' min', iso };
+  const h = Math.round(m / 60);
+  if (h < 24) return { online: false, text: 'visto há ' + h + ' h', iso };
+  const dd = Math.round(h / 24);
+  return { online: false, text: dd < 30 ? 'visto há ' + dd + ' d' : 'visto em ' + new Date(iso).toLocaleDateString('pt-BR'), iso };
+}
+
+function frRow(login, id, sub, actions, seen) {
+  const dot = seen ? `<span class="st ${seen.online ? 'online' : 'offline'}"></span>` : '';
+  const prof = seen ? ` data-prof="${esc(id)}" data-pl="${esc(login)}" data-ps="${esc(seen.iso)}" style="cursor:pointer"` : '';
   return `<div class="fr">
-    <span class="av ${avColor(id)}">${esc(initials(login))}</span>
-    <div class="t"><b>${esc(login)}</b><small>${sub}</small></div>
+    <span class="av ${avColor(id)}">${esc(initials(login))}${dot}</span>
+    <div class="t"${prof}><b>${esc(login)}</b><small>${sub}</small></div>
     <div class="acts">${actions}</div>
   </div>`;
 }
@@ -1118,8 +1185,8 @@ function renderFriends() {
 
   html += `<h3 style="margin-top:22px">Todos os amigos · ${ok.length}</h3>`;
   html += ok.length
-    ? ok.map(f => frRow(f.login, f.user_id, '@' + esc(f.login),
-        `<button class="circ" data-dm aria-label="Mensagem para ${esc(f.login)}" title="Mensagem">${ic('msg','i')}</button>`)).join('')
+    ? ok.map(f => { const sn = seenInfo(f.last_seen_at); return frRow(f.login, f.user_id, '@' + esc(f.login) + ' · ' + esc(sn.text),
+        `<button class="circ" data-dm aria-label="Mensagem para ${esc(f.login)}" title="Mensagem">${ic('msg','i')}</button>`, sn); }).join('')
     : '<div class="empty-s" style="padding:14px 0">Você ainda não tem amigos. Envie um pedido pelo @login acima.</div>';
 
   $('#fbLists').innerHTML = html;
@@ -1399,9 +1466,142 @@ if (window.bridge?.onUpdateAvailable) {
   $('#installUpdateBtn').onclick = () => window.bridge.installUpdate();
 }
 
+/* ── perfil (próprio e de outros) ── */
+function openProfile(o) {
+  const self = !o || o.id === USER.id;
+  const login = self ? USER.login : o.login, id = self ? USER.id : o.id;
+  const sn = self ? { online: true, text: 'Online agora' } : seenInfo(o.iso);
+  $('#profAv').className = 'av xl ' + avColor(id);
+  setAvText($('#profAv'), initials(login));
+  const dot = $('#profAv .st'); if (dot) dot.className = 'st ' + (sn.online ? 'online' : 'offline');
+  $('#t-prof').textContent = (self && USER.display_name) ? USER.display_name : login;
+  $('#profLogin').textContent = '@' + login;
+  $('#profExtra').innerHTML = `<small style="color:var(--muted)">${esc(sn.text)}</small>`;
+  openM('m-profile', document.activeElement);
+  if (self) {
+    api('GET', '/api/me/stats').then(st => {
+      $('#profExtra').innerHTML = `<small style="color:var(--muted)">${esc(sn.text)}</small>` +
+        `<div><span class="chip">${esc(st.level.name)}</span> <small style="color:var(--muted)">${st.points} pontos · #${st.rank} de ${st.total_players} no ranking</small></div>` +
+        `<div class="badges">${st.badges.length ? st.badges.map(b => `<span class="chip" title="${esc(b.desc)}">${esc(b.name)}</span>`).join('') : '<small style="color:var(--muted)">Ainda sem distintivos. Convide amigos para ganhar.</small>'}</div>`;
+    }).catch(() => {});
+  }
+}
+document.addEventListener('click', e => {
+  const p = e.target.closest('[data-prof]');
+  if (p) openProfile({ id: p.dataset.prof, login: p.dataset.pl, iso: p.dataset.ps });
+});
+
+/* ── código de recuperação ── */
+function showRecovery(code, sub) {
+  $('#rcBox').textContent = code;
+  $('#rcSub').textContent = sub || 'É a única forma de recuperar sua senha. Ele aparece só desta vez.';
+  $('#rcOk').checked = false; $('#rcDone').disabled = true;
+  openM('m-rcode', document.activeElement);
+}
+$('#rcOk').onchange = e => { $('#rcDone').disabled = !e.target.checked; };
+$('#rcCopy').onclick = async () => {
+  try { await navigator.clipboard.writeText($('#rcBox').textContent); toast('Código copiado'); }
+  catch (_) { toast('Selecione o código e copie com Ctrl+C.', true); }
+};
+$('#rcDl').onclick = () => {
+  const txt = 'Denundike - código de recuperação\n\nConta: @' + USER.login + '\nCódigo: ' + $('#rcBox').textContent +
+    '\n\nGuarde este arquivo em lugar seguro. Quem tem o código pode redefinir a senha da conta.\n';
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([txt], { type: 'text/plain' }));
+  a.download = 'denundike-codigo-de-recuperacao.txt';
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+};
+$('#rcDone').onclick = () => { $('#m-rcode').hidden = true; toast('Pronto. Guarde o código em lugar seguro.'); };
+
+/* ── configurações: convites, ranking, segurança ── */
+function showSP(name) {
+  $$('.spane').forEach(p => { p.hidden = p.id !== 'sp-' + name; });
+  $$('.snav [data-sp]').forEach(b => b.setAttribute('aria-selected', b.dataset.sp === name));
+  if (name === 'inv') loadInvites();
+  if (name === 'rank') loadRanking();
+}
+function openSettings(from) { openM('m-settings', from); showSP('acc'); }
+document.addEventListener('click', e => { const b = e.target.closest('[data-sp]'); if (b) showSP(b.dataset.sp); });
+
+const DOWNLOAD_URL = 'https://github.com/igordiascardoso/denundike-releases/releases/latest';
+let _quotaFull = false;
+async function loadInvites() {
+  try {
+    const [st, list] = await Promise.all([api('GET', '/api/me/stats'), api('GET', '/api/invites/mine')]);
+    const nx = st.next_level;
+    $('#invStat').innerHTML =
+      `<div class="top"><span class="lvl">${esc(st.level.name)}</span><small>#${st.rank} de ${st.total_players} · ${st.points} pontos</small></div>` +
+      (nx ? `<div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(st.accepted / nx.min_accepted * 100)}"><i style="width:${Math.round(st.accepted / nx.min_accepted * 100)}%"></i></div>` +
+            `<small>${st.accepted} de ${nx.min_accepted} convites aceitos para virar <b>${esc(nx.name)}</b> (faltam ${st.to_next})</small>`
+          : `<div class="bar"><i style="width:100%"></i></div><small>Nível máximo. Você é uma lenda.</small>`) +
+      `<div class="badges">${st.badges.map(b => `<span class="chip" title="${esc(b.desc)}">${esc(b.name)}</span>`).join('')}</div>`;
+    _quotaFull = st.pending >= st.quota;
+    $('#invNew').disabled = _quotaFull;
+    $('#invQuota').textContent = st.pending + ' de ' + st.quota + ' convites pendentes' + (_quotaFull ? ' (limite do seu nível)' : '');
+    $('#invList').innerHTML = list.length ? list.map(i => {
+      const dead = i.status !== 'active';
+      const chip = i.status === 'used' ? `<span class="chip">Usado por @${esc(i.used_by)}</span>` : i.status === 'expired' ? '<span class="chip neu">Expirado</span>' : '<span class="chip neu">Ativo</span>';
+      return `<div class="inv${dead ? ' dead' : ''}"><code>${esc(i.code)}</code>${chip}` +
+        (dead ? '' : `<button class="btn sm" data-icopy="${esc(i.code)}">Copiar</button><button class="btn sm" data-imsg="${esc(i.code)}">Copiar convite</button>`) + '</div>';
+    }).join('') : '<div class="empty-s" style="padding:18px 0">Você ainda não gerou convites.</div>';
+  } catch (e) { fail(e); }
+}
+$('#invNew').onclick = async e => {
+  const btn = e.currentTarget;
+  await run(btn, async () => {
+    const inv = await api('POST', '/api/invites');
+    try { await navigator.clipboard.writeText(inv.code); toast('Convite gerado e copiado: ' + inv.code); } catch (_) { toast('Convite gerado: ' + inv.code); }
+    await loadInvites();
+  });
+  btn.disabled = _quotaFull; // run() reabilita o botão; a cota manda
+};
+$('#invList').addEventListener('click', async e => {
+  const c = e.target.closest('[data-icopy]'), m = e.target.closest('[data-imsg]');
+  if (!c && !m) return;
+  const code = (c || m).dataset.icopy || (c || m).dataset.imsg;
+  const text = c ? code : 'Entra no Denundike comigo! Baixe em ' + DOWNLOAD_URL + ' e, na hora de criar a conta, use o convite: ' + code;
+  try { await navigator.clipboard.writeText(text); toast(c ? 'Código copiado' : 'Mensagem de convite copiada'); }
+  catch (_) { toast('Não consegui copiar. Selecione o código e use Ctrl+C.', true); }
+});
+
+async function loadRanking() {
+  try {
+    const r = await api('GET', '/api/ranking');
+    const row = (e, i, me) => `<div class="rk${me ? ' me' : ''}${e.rank <= 3 ? ' top3' : ''}"><span class="pos">${e.rank}</span>` +
+      `<span class="av ${avColor(e.user_id)}">${esc(initials(e.login))}</span>` +
+      `<div class="nm"><b>${esc(e.name)}${me ? ' (você)' : ''}</b><small>@${esc(e.login)} · ${esc(e.level)} · ${e.accepted} convites aceitos</small></div>` +
+      `<span class="pt">${e.points}</span><small style="color:var(--muted)">pts</small></div>`;
+    let html = r.top.map((e, i) => row(e, i, r.me && e.user_id === r.me.user_id)).join('');
+    if (r.me && r.me.rank > r.top.length) html += '<div style="text-align:center;color:var(--muted)">…</div>' + row(r.me, 0, true);
+    $('#rankList').innerHTML = html || '<div class="empty-s">Ninguém no ranking ainda.</div>';
+  } catch (e) { fail(e); }
+}
+
+$('#secNew').onclick = e => run(e.currentTarget, async () => {
+  const password = $('#secPw').value;
+  if (!password) return toast('Digite sua senha atual.', true);
+  const r = await api('POST', '/api/auth/recovery-code', { password }, { keep: true });
+  $('#secPw').value = '';
+  showRecovery(r.recovery_code, 'Este é o seu novo código. O anterior deixou de valer.');
+});
+
 /* ── init ── */
 document.addEventListener('DOMContentLoaded', async () => {
   renderMe();
+  (async () => {
+    try {
+      const me = await api('GET', '/api/auth/me');
+      if (me && me.user) {
+        Object.assign(USER, me.user);
+        localStorage.setItem('denundike_user', JSON.stringify(me.user));
+        if (me.user.has_recovery === false) {
+          const r = await api('POST', '/api/auth/recovery-code/init');
+          showRecovery(r.recovery_code, 'Sua conta é anterior ao código de recuperação. Este é o seu código: ele aparece só desta vez.');
+        }
+      }
+    } catch (_) { /* sem rede agora: tenta na próxima abertura */ }
+  })();
   connectWS();
   try { await loadGroups(); } catch (e) { fail(e); }
   refreshSocial();

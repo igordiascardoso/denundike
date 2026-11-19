@@ -17,12 +17,12 @@
 }
 *{box-sizing:border-box;margin:0}
 html,body{height:100%}
-body{background:radial-gradient(120% 90% at 20% 0%,#161e21 0%,var(--bg0) 60%);color:var(--fg);font-family:var(--disp);overflow-x:hidden;min-height:100vh}
+body{background:radial-gradient(120% 90% at 20% 0%,#161e21 0%,var(--bg0) 60%);color:var(--fg);font-family:var(--disp);overflow-x:hidden;min-height:100vh;padding-top:36px}
 #spot{position:fixed;inset:0;z-index:0;pointer-events:none;background:radial-gradient(560px 460px at var(--mx,72%) var(--my,30%),#c8f56014,transparent 70%)}
 #wave{position:fixed;inset:0;width:100%;height:100%;z-index:0;pointer-events:none}
 #rope{position:fixed;inset:0;width:100%;height:100%;z-index:3;pointer-events:none}
 .grain{position:fixed;inset:0;z-index:1;pointer-events:none;opacity:.05;background-image:repeating-linear-gradient(0deg,#fff 0 1px,transparent 1px 3px)}
-main{position:relative;z-index:2;min-height:100vh;display:grid;grid-template-columns:1.1fr minmax(380px,480px);gap:clamp(24px,6vw,96px);align-items:center;padding:clamp(24px,5vw,72px);max-width:1280px;margin:auto}
+main{position:relative;z-index:2;min-height:calc(100vh - 36px);display:grid;grid-template-columns:1.1fr minmax(380px,480px);gap:clamp(24px,6vw,96px);align-items:center;padding:clamp(24px,5vw,72px);max-width:1280px;margin:auto}
 .poster{align-self:stretch;display:flex;flex-direction:column;justify-content:space-between;padding:8px 0}
 .brand{display:flex;align-items:center;gap:10px;font-weight:800;letter-spacing:-.02em;font-size:20px}
 .dot{width:12px;height:12px;border-radius:50%;background:var(--lime);box-shadow:0 0 0 0 var(--lime);animation:ping 2.4s infinite}
@@ -36,7 +36,7 @@ main{position:relative;z-index:2;min-height:100vh;display:grid;grid-template-col
 .meta b{color:var(--lime);font-weight:500}
 
 /* cartão */
-.panel{position:relative;margin-top:56px;background:linear-gradient(180deg,#151c1f,#0E1315);border:1px solid var(--line0);border-radius:22px;padding:34px 30px 28px;box-shadow:0 40px 90px -30px #000c,inset 0 1px 0 #ffffff0a}
+.panel{position:relative;margin-top:120px;background:linear-gradient(180deg,#151c1f,#0E1315);border:1px solid var(--line0);border-radius:22px;padding:34px 30px 28px;box-shadow:0 40px 90px -30px #000c,inset 0 1px 0 #ffffff0a}
 .panel.shake{animation:pshake .5s var(--ease)}
 @keyframes pshake{20%{transform:translateX(-9px)}40%{transform:translateX(8px)}60%{transform:translateX(-5px)}80%{transform:translateX(3px)}}
 .socket{position:absolute;top:-1px;left:50%;width:34px;height:34px;margin:-17px 0 0 -17px;border-radius:50%;background:var(--bg0);border:1.5px solid var(--line);display:grid;place-items:center;transition:border-color .3s,box-shadow .4s;pointer-events:none}
@@ -101,14 +101,34 @@ h1{font-size:26px;font-weight:800;letter-spacing:-.02em;margin-bottom:6px}
 @keyframes draw{to{stroke-dashoffset:0}}
 @keyframes pop{from{transform:scale(.4);opacity:0}}
 .upd{position:fixed;inset:0;z-index:50;display:none;place-items:center;background:#0b0f10f2;color:#EAF0EC;text-align:center;font-family:inherit}.upd.on{display:grid}.upd b{display:block;font-size:22px;margin-bottom:10px}.upd span{color:#9AA7A0;font-size:14px}.upd i{display:block;width:260px;height:4px;margin:18px auto 0;background:#26302c;border-radius:3px;overflow:hidden}.upd i u{display:block;height:100%;width:0;background:#C8F560;transition:width .3s}
+.titlebar{position:fixed;top:0;left:0;right:0;height:36px;z-index:100;display:flex;align-items:center;gap:10px;padding-left:14px;background:var(--bg0);border-bottom:1px solid var(--line0);font:700 13px var(--disp);letter-spacing:.02em;color:var(--mute);-webkit-app-region:drag;user-select:none}
+.titlebar .lg{width:18px;height:18px;flex:none}
+.titlebar .wc{margin-left:auto;display:flex;-webkit-app-region:no-drag}
+.titlebar .wc button{width:46px;height:36px;display:grid;place-items:center;color:var(--mute);background:none;border:0;cursor:pointer}
+.titlebar .wc button:hover{background:var(--bg2);color:var(--fg)}.titlebar .wc button:last-child:hover{background:var(--coral);color:#fff}
+.titlebar .wc svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.chk{display:flex;align-items:center;gap:8px;color:var(--mute);font:500 13.5px var(--disp);cursor:pointer}.chk input{accent-color:var(--lime);width:16px;height:16px;margin:0}
+.rcode{font:500 23px var(--mono);letter-spacing:.07em;text-align:center;background:var(--bg0);border:1px dashed var(--lime);border-radius:12px;padding:18px 8px;color:var(--lime);margin:6px 0 14px;user-select:all;word-break:break-all}
+.rrow{display:flex;gap:8px;margin-bottom:14px}.rrow .btn{margin-top:0}
+.btn.ghost{background:var(--bg0);color:var(--fg);border:1px solid var(--line)}.btn.ghost:hover{box-shadow:none;border-color:var(--lime)}
+.btn:disabled{opacity:.4;pointer-events:none}
 [hidden]{display:none!important}
-@media(max-width:860px){main{grid-template-columns:1fr;gap:8px;padding:20px 16px}.poster{display:block}.big{font-size:52px;margin:18px 0}.meta{display:none}.panel{margin-top:84px}}
+@media(max-width:860px){main{grid-template-columns:1fr;gap:8px;padding:20px 16px}.poster{display:block}.big{font-size:52px;margin:18px 0}.meta{display:none}.panel{margin-top:150px}}
 @media(max-width:420px){.panel{padding:30px 20px 22px}.code{gap:5px}}
 @media(prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;animation-delay:0s!important;transition-duration:.01ms!important}.big .w>span{transform:none}.badge svg{stroke-dashoffset:0}}
 </style>
 </head>
 <body>
+<header class="titlebar">
+  <svg class="lg" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="10" fill="#C8F560"/><path d="M10.5 8.5h5a7.5 7.5 0 0 1 0 15h-5z" fill="none" stroke="#0F1A00" stroke-width="3" stroke-linejoin="round"/><circle cx="16" cy="16" r="2.2" fill="#0F1A00"/></svg><span>Denundike</span>
+  <div class="wc">
+    <button type="button" id="wMin" aria-label="Minimizar"><svg viewBox="0 0 24 24"><path d="M6 12h12"/></svg></button>
+    <button type="button" id="wMax" aria-label="Maximizar"><svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1"/></svg></button>
+    <button type="button" id="wClose" aria-label="Fechar"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+  </div>
+</header>
 <div id="spot" aria-hidden="true"></div><canvas id="wave" aria-hidden="true"></canvas><div class="grain"></div><canvas id="rope" aria-hidden="true"></canvas>
+<div class="upd" id="auto" role="status"><div><b>Entrando…</b><span id="auto-s">retomando sua sessão</span></div></div>
 <div class="upd" id="upd" role="status" aria-live="polite"><div><b id="upd-t">Atualizando o Denundike…</b><span id="upd-s">baixando a nova versão</span><i><u id="upd-bar"></u></i></div></div>
 <main>
   <section class="poster">
@@ -130,7 +150,7 @@ h1{font-size:26px;font-weight:800;letter-spacing:-.02em;margin-bottom:6px}
       <div class="banner" role="alert"></div>
       <div class="f"><label for="l-id">E-mail ou @login</label><div class="in"><input id="l-id" name="id" autocomplete="username" spellcheck="false" placeholder="voce@email.com ou @voce"></div><div class="err" role="alert"></div></div>
       <div class="f"><label for="l-pw">Senha</label><div class="in"><input id="l-pw" name="pw" type="password" autocomplete="current-password" placeholder="Sua senha"><button type="button" class="eye" aria-label="Mostrar senha">ver</button></div><div class="err" role="alert"></div></div>
-      <div class="row"><span></span><button type="button" class="lnk" data-go="recover">Esqueci a senha</button></div>
+      <div class="row"><label class="chk"><input type="checkbox" id="l-rem" checked><span>Lembrar de mim</span></label><button type="button" class="lnk" data-go="recover">Esqueci a senha</button></div>
       <button class="btn"><span class="t">Entrar</span><span class="ld"><i></i><i></i><i></i></span></button>
       <p class="hint">conecte ao servidor com seu usuário e senha</p>
     </form>
@@ -147,32 +167,26 @@ h1{font-size:26px;font-weight:800;letter-spacing:-.02em;margin-bottom:6px}
       <p class="hint" id="register-hint">convite necessário para criar conta</p>
     </form>
 
-    <div class="view" id="recover" data-sig="Reencontre|o sinal.">
+    <form class="view" id="recover" data-sig="Reencontre|o sinal." novalidate>
       <button type="button" class="lnk back" data-go="login">← Voltar</button>
-      <div class="steps" aria-hidden="true"><i class="on"></i><i></i><i></i><i></i></div>
-      <form data-step="0" class="step" novalidate>
-        <h1>Recuperar senha</h1><p class="sub">Digite o e-mail da conta e a gente manda um código de 6 dígitos.</p>
-        <div class="banner" role="alert"></div>
-        <div class="f"><label for="p-em">E-mail</label><div class="in"><input id="p-em" name="em" type="email" autocomplete="email" spellcheck="false" placeholder="voce@email.com"></div><div class="err" role="alert"></div></div>
-        <button class="btn"><span class="t">Enviar código</span><span class="ld"><i></i><i></i><i></i></span></button>
-      </form>
-      <form data-step="1" class="step" hidden novalidate>
-        <h1>Digite o código</h1><p class="sub">Enviado para <b id="p-to" style="color:var(--fg);font-weight:500"></b>.</p>
-        <div class="f"><div class="code" role="group" aria-label="Código de 6 dígitos"><input inputmode="numeric" maxlength="1" aria-label="Dígito 1" autocomplete="one-time-code"><input inputmode="numeric" maxlength="1" aria-label="Dígito 2"><input inputmode="numeric" maxlength="1" aria-label="Dígito 3"><input inputmode="numeric" maxlength="1" aria-label="Dígito 4"><input inputmode="numeric" maxlength="1" aria-label="Dígito 5"><input inputmode="numeric" maxlength="1" aria-label="Dígito 6"></div><div class="err" role="alert"></div></div>
-        <button class="btn"><span class="t">Verificar</span><span class="ld"><i></i><i></i><i></i></span></button>
-        <div class="row" style="margin-top:12px"><button type="button" class="lnk" id="resend" disabled>Reenviar em 30s</button><button type="button" class="lnk" data-step-go="0">Trocar e-mail</button></div>
-      </form>
-      <form data-step="2" class="step" hidden novalidate>
-        <h1>Nova senha</h1><p class="sub">Escolha uma senha que você não use em outro lugar.</p>
-        <div class="f"><label for="p-pw">Nova senha</label><div class="in"><input id="p-pw" name="pw" type="password" autocomplete="new-password" placeholder="Mínimo de 8 caracteres"><button type="button" class="eye" aria-label="Mostrar senha">ver</button></div><div class="meter" aria-hidden="true"><i></i><i></i><i></i><i></i></div><div class="err" role="alert"></div></div>
-        <div class="f"><label for="p-pw2">Repita a senha</label><div class="in"><input id="p-pw2" name="pw2" type="password" autocomplete="new-password" placeholder="Repita a senha"></div><div class="err" role="alert"></div></div>
-        <button class="btn"><span class="t">Salvar senha</span><span class="ld"><i></i><i></i><i></i></span></button>
-      </form>
-      <div data-step="3" class="step ok" hidden>
-        <div class="badge"><svg viewBox="0 0 36 36" aria-hidden="true"><path d="M7 19l8 8 14-16"/></svg></div>
-        <h1>Senha atualizada</h1><p class="sub">Sinal restabelecido. Já pode entrar com a nova senha.</p>
-        <button class="btn" data-go="login"><span class="t">Ir para entrar</span></button>
-      </div>
+      <h1>Recuperar senha</h1>
+      <p class="sub">Use o código de recuperação que apareceu quando você criou a conta (XXXX-XXXX-XXXX-XXXX).</p>
+      <div class="banner" role="alert"></div>
+      <div class="f"><label for="p-lg">@login</label><div class="in"><input id="p-lg" name="lg" autocomplete="username" spellcheck="false" placeholder="@seunome"></div><div class="err" role="alert"></div></div>
+      <div class="f"><label for="p-cd">Código de recuperação</label><div class="in"><input id="p-cd" name="cd" autocomplete="off" spellcheck="false" placeholder="XXXX-XXXX-XXXX-XXXX" maxlength="19" style="font-family:var(--mono);letter-spacing:.06em"></div><div class="err" role="alert"></div></div>
+      <div class="f"><label for="p-pw">Nova senha</label><div class="in"><input id="p-pw" name="pw" type="password" autocomplete="new-password" placeholder="Mínimo de 8 caracteres"><button type="button" class="eye" aria-label="Mostrar senha">ver</button></div><div class="meter" aria-hidden="true"><i></i><i></i><i></i><i></i></div><div class="err" role="alert"></div></div>
+      <div class="f"><label for="p-pw2">Repita a nova senha</label><div class="in"><input id="p-pw2" name="pw2" type="password" autocomplete="new-password" placeholder="Repita a senha"></div><div class="err" role="alert"></div></div>
+      <button class="btn"><span class="t">Redefinir senha</span><span class="ld"><i></i><i></i><i></i></span></button>
+      <p class="hint">sem o código não há como recuperar a senha</p>
+    </form>
+
+    <div class="view" id="rcode" data-sig="Guarde o|código.">
+      <h1 id="rc-t">Guarde este código</h1>
+      <p class="sub" id="rc-s">É a única forma de recuperar sua senha. Ele aparece só desta vez.</p>
+      <div class="rcode" id="rc-code" aria-live="polite">XXXX-XXXX-XXXX-XXXX</div>
+      <div class="rrow"><button type="button" class="btn ghost" id="rc-copy">Copiar</button><button type="button" class="btn ghost" id="rc-dl">Baixar .txt</button></div>
+      <label class="chk" style="margin-bottom:14px"><input type="checkbox" id="rc-ok"><span>Guardei meu código em um lugar seguro</span></label>
+      <button type="button" class="btn" id="rc-go" disabled><span class="t">Continuar</span></button>
     </div>
 
     <div class="view" id="done" data-sig="Você está|no ar.">
@@ -270,7 +284,7 @@ function measure(){
   var r=pEl.getBoundingClientRect(),s=sEl.getBoundingClientRect();
   pr.x=r.left;pr.y=r.top;pr.w=r.width;pr.h=r.height;
   R.sx=s.left+s.width/2;R.sy=s.top+s.height/2;
-  R.ax=R.sx;R.ay=isStatic()?Math.max(-14,r.top-84):-14;
+  R.ax=R.sx;R.ay=isStatic()?Math.max(-14,r.top-150):-14;
   R.L=Math.max(90,(R.sy-R.ay)*1.012+12);
 }
 function seed(){
@@ -280,7 +294,7 @@ function seed(){
 function stepRope(now){
   var P=R.pts,N=R.N,seg=R.L/N,sx=R.sx,sy=R.sy,err=C.status==='error',stat=isStatic(),i,p;
   var tn=nowMs();if(R.mode==='ant'&&tn-R.mt>170)R.mode='tense';
-  var want=!R.drag&&!err&&(R.mode==='docked'||R.snap);
+  var want=!R.drag&&!err&&(R.mode==='docked'||R.mode==='tense'||R.snap);
   if(want!==R.docked){
     R.docked=want;
     if(want){R.rings.push({r:6,a:1,c:'#C8F560'});if(!stat){S.pulse=1;S.tAmp=Math.max(S.tAmp,.5)}}
@@ -289,14 +303,13 @@ function stepRope(now){
   var end=P[N];
   if(R.drag){end.x+=(R.mouse.x-end.x)*.35;end.y+=(R.mouse.y-end.y)*.35}
   else if(!R.docked){
-    var lift=1-Math.min(C.p,1),tx=sx,rest=Math.max(40,sy-(stat?70:118)-lift*(stat?10:34)),ty=rest,k=.02+C.p*.02;
-    if(err){k=.05}
-    else if(!stat&&R.mode==='ant'){ty=Math.max(24,rest-30);k=.3}
-    else if(!stat&&R.mode==='tense'){ty=sy-13+Math.sin(tn*.05)*2;tx=sx+Math.sin(tn*.07)*1.5;k=.28}
+    var lift=1-Math.min(C.p,1),gap=Math.max(40,Math.min(stat?70:112,sy-100)),tx=sx,rest=sy-gap-lift*(stat?4:12),ty=rest,k=.08+C.p*.04;
+    if(err){k=.14}
+    else if(!stat&&R.mode==='ant'){ty=Math.max(24,rest-26);k=.3}
     end.x+=(tx-end.x)*k;end.y+=(ty-end.y)*k;
   }
   var lock=false;
-  if(R.docked){var dd=Math.hypot(sx-end.x,sy-end.y);lock=dd<3;if(!lock){end.x+=(sx-end.x)*.4;end.y+=(sy-end.y)*.4}P[N-1].x+=(sx-P[N-1].x)*.2;P[N-1].y+=((sy-30)-P[N-1].y)*.2}
+  if(R.docked){var dd=Math.hypot(sx-end.x,sy-end.y);lock=dd<3;if(!lock){end.x+=(sx-end.x)*.16;end.y+=(sy-end.y)*.16}P[N-1].x+=(sx-P[N-1].x)*.2;P[N-1].y+=((sy-30)-P[N-1].y)*.2}
   for(var it=0;it<14;it++){
     P[0].x=R.ax;P[0].y=R.ay;
     if(lock){end.x=sx;end.y=sy}
@@ -393,7 +406,7 @@ function headline(txt){
 }
 
 /* ---------- progresso (decide se o plugue encaixa) ---------- */
-var view='login',stepN=0,emailRe=/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/,ci=$$('.code input');
+var view='login',emailRe=/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 function v(sel){return $(sel).value.trim()}
 function progress(){
   var p=0;
@@ -402,36 +415,30 @@ function progress(){
     p=(emailRe.test(v('#r-em'))?1:0)+(/^[a-z0-9_.]{3,20}$/i.test(v('#r-lg').replace(/^@/,''))?1:0)+(v('#r-nm').length>=2?1:0)+($('#r-pw').value.length>=8?1:0);p/=4;
   }
   else if(view==='recover'){
-    if(stepN===0)p=emailRe.test(v('#p-em'))?1:.15;
-    else if(stepN===1)p=ci.filter(function(i){return i.value}).length/6;
-    else if(stepN===2){var a=$('#p-pw').value,b=$('#p-pw2').value;p=(a.length>=8?.5:0)+(a.length>=8&&a===b?.5:0)}
-    else p=1;
+    p=(v('#p-lg').replace(/^@/,'').length>=3?.25:0)+(v('#p-cd').replace(/[^A-Za-z0-9]/g,'').length===16?.25:0)+($('#p-pw').value.length>=8?.25:0)+($('#p-pw').value.length>=8&&$('#p-pw').value===$('#p-pw2').value?.25:0);
   }
   else p=1;
   C.p=p;R.snap=false;R.dirty=true;
 }
 
 /* ---------- navegação ---------- */
-var titles={login:'Entrar',register:'Criar conta',recover:'Recuperar senha',done:'Conectado'};
+var titles={login:'Entrar',register:'Criar conta',recover:'Recuperar senha',rcode:'Código de recuperação',done:'Conectado'};
 function go(id){
   view=id;
   $$('.view').forEach(function(x){x.classList.remove('on')});
   var el=$('#'+id);el.classList.add('on');
   headline(el.getAttribute('data-sig'));
   document.title='Denundike · '+titles[id];
-  var tabs=$('#tabs');tabs.hidden=(id==='recover'||id==='done');
+  var tabs=$('#tabs');tabs.hidden=(id==='recover'||id==='done'||id==='rcode');
   if(id==='login'||id==='register'){tabs.setAttribute('data-on',id);$('#tab-login').setAttribute('aria-selected',String(id==='login'));$('#tab-register').setAttribute('aria-selected',String(id==='register'))}
   $$('.f.bad',el).forEach(function(f){f.classList.remove('bad')});
   $$('.banner',el).forEach(function(b){b.classList.remove('on')});
-  if(id==='recover')step(0);
   sig('idle');progress();
   var first=$('input',el);
-  if(first&&id!=='done'&&id!=='recover'){setTimeout(function(){first.focus({preventScroll:true})},60)}
-  if(history.replaceState){try{history.replaceState(null,'','#'+id)}catch(e){}}
+  if(first&&id!=='done'&&id!=='rcode'){var pre=(id==='login'&&$('#l-id').value)?$('#l-pw'):first;setTimeout(function(){pre.focus({preventScroll:true})},60)}
 }
 document.addEventListener('click',function(e){
   var b=e.target.closest('[data-go]');if(b){e.preventDefault();go(b.getAttribute('data-go'))}
-  var s=e.target.closest('[data-step-go]');if(s){step(+s.getAttribute('data-step-go'))}
   var ey=e.target.closest('.eye');if(ey){var i=$('input',ey.parentNode);var show=i.type==='password';i.type=show?'text':'password';ey.textContent=show?'ocultar':'ver';ey.setAttribute('aria-label',show?'Ocultar senha':'Mostrar senha')}
 });
 
@@ -448,7 +455,7 @@ $$('.meter').forEach(function(m){var inp=$('input',m.parentNode);inp.addEventLis
 /* ---------- entrar (API real) ---------- */
 $('#login').addEventListener('submit',function(e){
   e.preventDefault();
-  var f=e.target,id=f.id.value.trim(),pw=f.pw.value;
+  var f=e.target,id=f.id.value.trim(),pw=f.pw.value,remember=$('#l-rem').checked;
   // validação cliente
   var bad=null;
   if(!id)bad=fail(f.id,'Informe seu e-mail ou @login.');
@@ -457,9 +464,8 @@ $('#login').addEventListener('submit',function(e){
   if(bad){sig('err');bad.focus();return}
   clear(f);busy(f,true);
   Promise.resolve().then(function(){return api.login(id,pw)}).then(function(data){
-    try{localStorage.setItem('denundike_token',data.token);localStorage.setItem('denundike_user',JSON.stringify(data.user))}catch(ex){}
-    sig('ok');
-    setTimeout(function(){window.bridge.openMain()},900);
+    saveSession(data,remember);
+    enterApp();
   }).catch(function(err){
     busy(f,false);
     var msg=(err&&err.message)||'';
@@ -487,13 +493,15 @@ $('#register').addEventListener('submit',function(e){
   var lg=f.lg.value.trim().replace(/^@/,'');
   var em=f.em.value.trim();
   var pw=f.pw.value;
-  Promise.resolve().then(function(){return api.register(lg,em,pw,inviteCode)}).then(function(){
-    // auto-login após registro
+  var recCode='';
+  Promise.resolve().then(function(){return api.register(lg,em,pw,inviteCode,f.nm.value.trim())}).then(function(r){
+    recCode=(r&&r.user&&r.user.recovery_code)||'';
     return api.login(lg,pw);
   }).then(function(data){
-    try{localStorage.setItem('denundike_token',data.token);localStorage.setItem('denundike_user',JSON.stringify(data.user))}catch(ex){}
-    sig('ok');
-    setTimeout(function(){window.bridge.openMain()},900);
+    saveSession(data,true);
+    busy(f,false);
+    if(recCode)showRecoveryCode(recCode,'Conta criada! Guarde este código','É a única forma de recuperar sua senha se você esquecer. Ele aparece só desta vez.');
+    else enterApp();
   }).catch(function(err){
     busy(f,false);
     var msg=(err&&err.message)||'';
@@ -504,54 +512,94 @@ $('#register').addEventListener('submit',function(e){
   });
 });
 
-/* ---------- recuperar (fluxo placeholder — sem API ainda) ---------- */
-var steps=$$('#recover .step'),bars=$$('#recover .steps i'),tick=null;
-function step(n){
-  stepN=n;
-  steps.forEach(function(s){var show=(+s.getAttribute('data-step')===n);s.hidden=!show;if(show)s.style.animation='in .5s cubic-bezier(.22,1,.36,1)'});
-  bars.forEach(function(b,i){b.classList.toggle('on',i<=n)});
-  if(n===1){ci.forEach(function(i){i.value=''});ci[0].focus();countdown()}
-  else if(n===0){clearInterval(tick)}
-  if(n===3)sig('ok');
-  var fi=$('input',steps[n]);if(n!==1&&fi)setTimeout(function(){fi.focus({preventScroll:true})},60);
-  progress();
+/* ---------- sessão salva, código de recuperação ---------- */
+function lsGet(k){try{return localStorage.getItem(k)}catch(e){return null}}
+function lsSet(k,v){try{localStorage.setItem(k,v)}catch(e){}}
+function lsDel(k){try{localStorage.removeItem(k)}catch(e){}}
+function saveSession(data,remember){
+  lsSet('denundike_token',data.token);lsSet('denundike_user',JSON.stringify(data.user));
+  lsSet('denundike_last_login',data.user.login);lsSet('denundike_remember',remember?'1':'0');
 }
-function countdown(){
-  var r=$('#resend'),n=30;clearInterval(tick);r.disabled=true;r.textContent='Reenviar em '+n+'s';
-  tick=setInterval(function(){n--;if(n<=0){clearInterval(tick);r.disabled=false;r.textContent='Reenviar código'}else r.textContent='Reenviar em '+n+'s'},1000);
+function enterApp(delay){sig('ok');setTimeout(function(){window.bridge.openMain()},delay==null?900:delay)}
+function validator(){var bad=null;return{chk:function(c,i,m){if(c){var x=fail(i,m);bad=bad||x}},get bad(){return bad}}}
+
+var rcCode='';
+function showRecoveryCode(code,title,sub){
+  rcCode=code;$('#rc-code').textContent=code;$('#rc-t').textContent=title;$('#rc-s').textContent=sub;
+  $('#rc-ok').checked=false;$('#rc-go').disabled=true;
+  go('rcode');sig('ok');
 }
-$('#resend').addEventListener('click',function(){countdown();sig('load');setTimeout(function(){sig('idle');progress()},700)});
-$('[data-step="0"]').addEventListener('submit',function(e){
-  e.preventDefault();var f=e.target,em=f.em.value.trim();
-  if(!emailRe.test(em)){fail(f.em,'Digite um e-mail válido.');sig('err');return}
-  busy(f,true);
-  setTimeout(function(){busy(f,false);$('#p-to').textContent=em;step(1);sig('idle')},1300);
+$('#rc-ok').addEventListener('change',function(){$('#rc-go').disabled=!this.checked});
+$('#rc-copy').addEventListener('click',function(){
+  var b=this,done=function(){b.textContent='Copiado!';setTimeout(function(){b.textContent='Copiar'},1600)};
+  if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(rcCode).then(done,function(){selectCode()});else selectCode();
+  function selectCode(){var r=document.createRange();r.selectNodeContents($('#rc-code'));var sl=getSelection();sl.removeAllRanges();sl.addRange(r);try{document.execCommand('copy');done()}catch(e){}}
 });
-ci.forEach(function(i,k){
-  i.addEventListener('input',function(){i.value=i.value.replace(/\D/g,'').slice(-1);if(i.value&&ci[k+1])ci[k+1].focus()});
-  i.addEventListener('keydown',function(e){if(e.key==='Backspace'&&!i.value&&ci[k-1]){ci[k-1].focus();ci[k-1].value='';progress()}});
-  i.addEventListener('paste',function(e){var d=(e.clipboardData.getData('text')||'').replace(/\D/g,'').slice(0,6);if(!d)return;e.preventDefault();ci.forEach(function(c,j){c.value=d[j]||''});ci[Math.min(d.length,5)].focus();progress()});
+$('#rc-dl').addEventListener('click',function(){
+  var txt='Denundike - código de recuperação\n\nConta: @'+(lsGet('denundike_last_login')||'')+'\nCódigo: '+rcCode+'\n\nGuarde este arquivo em lugar seguro. Quem tem o código pode redefinir a senha da conta.\n';
+  var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([txt],{type:'text/plain'}));a.download='denundike-codigo-de-recuperacao.txt';
+  document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove()},500);
 });
-function codeErr(f,msg){var box=$('.code',f);box.classList.remove('bad');void box.offsetWidth;box.classList.add('bad');var w=box.parentNode;w.classList.add('bad');$('.err',w).textContent=msg}
-$('[data-step="1"]').addEventListener('submit',function(e){
-  e.preventDefault();var f=e.target,val=ci.map(function(i){return i.value}).join('');
-  if(val.length<6){codeErr(f,'Digite os 6 dígitos.');sig('err');ci[val.length].focus();return}
-  busy(f,true);
-  setTimeout(function(){busy(f,false);clearInterval(tick);sig('ok');setTimeout(function(){step(2);sig('idle')},700)},1200);
+$('#rc-go').addEventListener('click',function(){enterApp(250)});
+
+/* ---------- recuperar senha (API real) ---------- */
+$('#p-cd').addEventListener('input',function(){
+  var raw=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,16);
+  this.value=raw.replace(/(.{4})(?=.)/g,'$1-');progress();
 });
-$('[data-step="2"]').addEventListener('submit',function(e){
-  e.preventDefault();var f=e.target;
-  if(f.pw.value.length<8){fail(f.pw,'A senha precisa de ao menos 8 caracteres.');sig('err');return}
-  if(f.pw.value!==f.pw2.value){fail(f.pw2,'As senhas não são iguais.');sig('err');return}
-  busy(f,true);
-  setTimeout(function(){busy(f,false);step(3);sig('ok')},1300);
+$('#recover').addEventListener('submit',function(e){
+  e.preventDefault();var f=e.target,V=validator();
+  var lg=f.lg.value.trim().replace(/^@/,''),cd=f.cd.value.trim(),pw=f.pw.value;
+  V.chk(!lg,f.lg,'Informe seu @login.');
+  V.chk(cd.replace(/[^A-Za-z0-9]/g,'').length!==16,f.cd,'O código tem 16 caracteres (XXXX-XXXX-XXXX-XXXX).');
+  V.chk(pw.length<8,f.pw,'A senha precisa de ao menos 8 caracteres.');
+  V.chk(pw!==f.pw2.value,f.pw2,'As senhas não são iguais.');
+  if(V.bad){sig('err');V.bad.focus();return}
+  clear(f);busy(f,true);
+  Promise.resolve().then(function(){return api.recover(lg,cd,pw)}).then(function(data){
+    saveSession(data,true);busy(f,false);
+    showRecoveryCode(data.recovery_code,'Senha redefinida!','Este é o seu NOVO código de recuperação. O anterior deixou de valer.');
+  }).catch(function(err){
+    busy(f,false);
+    var msg=(err&&err.message)||'';
+    if(/too many/i.test(msg))banner(f,'Muitas tentativas. Tente de novo em 15 minutos.');
+    else if(/too short/i.test(msg))banner(f,'A senha precisa de ao menos 8 caracteres.');
+    else if(/invalid|unauthorized/i.test(msg))banner(f,'@login ou código de recuperação incorretos.');
+    else banner(f,'Falha ao conectar ao servidor. Verifique a conexão.');
+    sig('err');
+  });
 });
+
+/* ---------- barra de título ---------- */
+$('#wMin').onclick=function(){window.bridge.win.minimize()};
+$('#wMax').onclick=function(){window.bridge.win.toggleMaximize()};
+$('#wClose').onclick=function(){window.bridge.win.close()};
 
 /* ---------- init ---------- */
 size();
 var start=(location.hash||'').slice(1);
-go(titles[start]&&start!=='done'?start:'login');
+$('#l-rem').checked=(lsGet('denundike_remember')!=='0');
+if(lsGet('denundike_last_login'))$('#l-id').value='@'+lsGet('denundike_last_login');
+go(titles[start]&&start!=='done'&&start!=='rcode'?start:'login');
 requestAnimationFrame(frame);
+
+/* sessão salva: entra direto se o token ainda vale */
+(function(){
+  var tok=lsGet('denundike_token');
+  if(lsGet('denundike_remember')==='0'){lsDel('denundike_token');lsDel('denundike_user');return}
+  if(!tok)return;
+  var ov=$('#auto');ov.classList.add('on');sig('load');
+  api.me(tok).then(function(d){
+    lsSet('denundike_user',JSON.stringify(d.user));
+    $('#auto-s').textContent='bem-vindo de volta, @'+d.user.login;sig('ok');
+    setTimeout(function(){window.bridge.openMain()},350);
+  }).catch(function(err){
+    ov.classList.remove('on');sig('idle');
+    var m=(err&&err.message)||'';
+    if(/unauthorized|invalid|expired/i.test(m)){lsDel('denundike_token');lsDel('denundike_user')}
+    else banner($('#login'),'Sem conexão com o servidor. Verifique a internet e tente de novo.');
+  });
+})();
 
 /* ---------- convite da URL ---------- */
 if(inviteCode){

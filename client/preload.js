@@ -5,11 +5,12 @@ const BASE_URL = process.env.DENUNDIKE_SERVER || 'https://denundike.estudiofacha
 const wsClient = new DenundikeWS();
 
 contextBridge.exposeInMainWorld('bridge', {
-  api: async function (method, path, body) {
+  api: async function (method, path, body, token) {
     const opts = {
       method,
       headers: { 'Content-Type': 'application/json' },
     };
+    if (token) opts.headers.Authorization = 'Bearer ' + token;
     if (body && method !== 'GET') {
       opts.body = JSON.stringify(body);
     }
