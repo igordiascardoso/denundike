@@ -4,6 +4,7 @@ publish:
   provider: github
   owner: igordiascardoso
   repo: denundike-releases
+  releaseType: release
 win:
   target: nsis
 linux:
