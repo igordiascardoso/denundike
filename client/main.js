@@ -74,14 +74,28 @@ app.whenReady().then(() => {
   autoUpdater.checkForUpdatesAndNotify();
 });
 
+function sendToWindows(channel, ...args) {
+  for (const w of [loginWin, mainWin]) {
+    if (w && !w.isDestroyed()) w.webContents.send(channel, ...args);
+  }
+}
+
 autoUpdater.on('update-available', () => {
-  if (mainWin) mainWin.webContents.send('update-available');
-  else pendingUpdate = true;
+  if (!mainWin) pendingUpdate = true;
+  sendToWindows('update-available');
+});
+
+autoUpdater.on('download-progress', (p) => {
+  sendToWindows('update-progress', Math.round(p.percent));
 });
 
 autoUpdater.on('update-downloaded', () => {
-  if (mainWin) mainWin.webContents.send('update-downloaded');
-  else autoUpdater.quitAndInstall(true, true);
+  if (mainWin) {
+    mainWin.webContents.send('update-downloaded');
+  } else {
+    sendToWindows('update-installing');
+    setTimeout(() => autoUpdater.quitAndInstall(true, true), 2000);
+  }
 });
 
 ipcMain.on('install-update', () => {

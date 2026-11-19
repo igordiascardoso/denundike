@@ -100,6 +100,7 @@ h1{font-size:26px;font-weight:800;letter-spacing:-.02em;margin-bottom:6px}
 .badge svg{width:36px;height:36px;stroke:#0b1000;stroke-width:3.2;fill:none;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:40;stroke-dashoffset:40;animation:draw .6s .25s var(--ease) forwards}
 @keyframes draw{to{stroke-dashoffset:0}}
 @keyframes pop{from{transform:scale(.4);opacity:0}}
+.upd{position:fixed;inset:0;z-index:50;display:none;place-items:center;background:#0b0f10f2;color:#EAF0EC;text-align:center;font-family:inherit}.upd.on{display:grid}.upd b{display:block;font-size:22px;margin-bottom:10px}.upd span{color:#9AA7A0;font-size:14px}.upd i{display:block;width:260px;height:4px;margin:18px auto 0;background:#26302c;border-radius:3px;overflow:hidden}.upd i u{display:block;height:100%;width:0;background:#C8F560;transition:width .3s}
 [hidden]{display:none!important}
 @media(max-width:860px){main{grid-template-columns:1fr;gap:8px;padding:20px 16px}.poster{display:block}.big{font-size:52px;margin:18px 0}.meta{display:none}.panel{margin-top:84px}}
 @media(max-width:420px){.panel{padding:30px 20px 22px}.code{gap:5px}}
@@ -108,6 +109,7 @@ h1{font-size:26px;font-weight:800;letter-spacing:-.02em;margin-bottom:6px}
 </head>
 <body>
 <div id="spot" aria-hidden="true"></div><canvas id="wave" aria-hidden="true"></canvas><div class="grain"></div><canvas id="rope" aria-hidden="true"></canvas>
+<div class="upd" id="upd" role="status" aria-live="polite"><div><b id="upd-t">Atualizando o Denundike…</b><span id="upd-s">baixando a nova versão</span><i><u id="upd-bar"></u></i></div></div>
 <main>
   <section class="poster">
     <div class="brand"><span class="dot"></span>Denundike</div>
@@ -566,6 +568,14 @@ if(inviteCode){
     // convite inválido — apenas ignore, o usuário verá o erro ao tentar submeter
   });
 }
+
+/* ---------- atualização automática ---------- */
+(function(){
+  var u=$('#upd'),t=$('#upd-t'),sb=$('#upd-s'),bar=$('#upd-bar');
+  window.bridge.onUpdateAvailable(function(){u.classList.add('on')});
+  window.bridge.onUpdateProgress(function(p){u.classList.add('on');sb.textContent='baixando a nova versão · '+p+'%';bar.style.width=p+'%'});
+  window.bridge.onUpdateInstalling(function(){u.classList.add('on');t.textContent='Reiniciando…';sb.textContent='instalando a atualização, já volta';bar.style.width='100%'});
+})();
 
 })();
 </script>
