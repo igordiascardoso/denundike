@@ -34,6 +34,8 @@ func HandleRegister(db *sql.DB) http.HandlerFunc {
 				http.Error(w, "invalid or expired invite", http.StatusForbidden)
 			case err == ErrInviteUsed:
 				http.Error(w, "invite already used", http.StatusConflict)
+			case err == ErrInvalidLogin:
+				http.Error(w, "invalid login", http.StatusBadRequest)
 			case err == ErrUserExists, strings.Contains(err.Error(), "UNIQUE constraint failed"):
 				http.Error(w, "user already exists", http.StatusConflict)
 			default:

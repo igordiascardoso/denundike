@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jemunje/denundike/internal/gamify"
+	"github.com/jemunje/denundike/internal/uname"
 	"golang.org/x/crypto/argon2"
 )
 
@@ -22,6 +23,7 @@ var (
 	ErrInvalidCredentials = errors.New("invalid credentials")
 	ErrSessionNotFound    = errors.New("session expired or not found")
 	ErrUserExists         = errors.New("user already exists")
+	ErrInvalidLogin       = errors.New("invalid login")
 )
 
 // argon2id parameters.
@@ -142,6 +144,10 @@ func RegisterUser(db *sql.DB, login, email, password, inviteCode string) (*User,
 //     the transaction is rolled back (undoing the user INSERT as well).
 //  3. Credit the inviter with signup points.
 func RegisterUserFull(db *sql.DB, login, email, displayName, password, inviteCode string) (*User, error) {
+	login = uname.Clean(login)
+	if !uname.Valid(login) {
+		return nil, ErrInvalidLogin
+	}
 	// Pre-flight: check invite exists and is not already used before hashing
 	// (cheap path so we don't do argon2 work for obviously invalid codes).
 	var preUsedBy, preCreatedBy sql.NullString
@@ -177,8 +183,8 @@ func RegisterUserFull(db *sql.DB, login, email, displayName, password, inviteCod
 	defer tx.Rollback() //nolint:errcheck — harmless after Commit
 
 	var taken int
-	if err = tx.QueryRow(`SELECT COUNT(*) FROM users WHERE login = ? COLLATE NOCASE OR email = ? COLLATE NOCASE`,
-		login, email).Scan(&taken); err != nil {
+	if err = tx.QueryRow(`SELECT COUNT(*) FROM users WHERE login_norm = ? OR login = ? COLLATE NOCASE OR email = ? COLLATE NOCASE`,
+		uname.Norm(login), login, email).Scan(&taken); err != nil {
 		return nil, err
 	}
 	if taken > 0 {
@@ -194,9 +200,9 @@ func RegisterUserFull(db *sql.DB, login, email, displayName, password, inviteCod
 
 	// 1. Insert the user first so the FK in invites.used_by can be satisfied.
 	if _, err = tx.Exec(
-		`INSERT INTO users (id, login, email, password_hash, display_name, recovery_hash, invited_by)
-		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		id, login, email, hash, displayName, recHash, preCreatedBy,
+		`INSERT INTO users (id, login, login_norm, email, password_hash, display_name, recovery_hash, invited_by)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		id, login, uname.Norm(login), email, hash, displayName, recHash, preCreatedBy,
 	); err != nil {
 		return nil, err
 	}
@@ -249,9 +255,8 @@ func RegisterUserFull(db *sql.DB, login, email, displayName, password, inviteCod
 // Login verifies credentials and creates a session that expires in 30 days.
 // Returns the session token and the authenticated user.
 func Login(db *sql.DB, login, password string) (string, *User, error) {
-	login = strings.TrimPrefix(strings.TrimSpace(login), "@")
 	user, err := scanUser(db.QueryRow(
-		`SELECT `+userCols+` FROM users u WHERE u.login = ? COLLATE NOCASE`, login))
+		`SELECT `+userCols+` FROM users u WHERE u.login_norm = ? OR u.email = ? COLLATE NOCASE`, uname.Norm(login), strings.TrimSpace(login)))
 	if errors.Is(err, sql.ErrNoRows) {
 		return "", nil, ErrInvalidCredentials
 	}

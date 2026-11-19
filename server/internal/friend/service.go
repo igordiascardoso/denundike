@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/jemunje/denundike/internal/uname"
 )
 
 // Sentinel errors.
@@ -20,8 +21,7 @@ var (
 // It returns the target's user id and whether the request completed an existing
 // opposite request (in which case the friendship is accepted immediately).
 func RequestFriend(db *sql.DB, requesterID, targetLogin string) (targetID string, accepted bool, err error) {
-	targetLogin = strings.TrimPrefix(strings.TrimSpace(targetLogin), "@")
-	err = db.QueryRow(`SELECT id FROM users WHERE login = ?`, targetLogin).Scan(&targetID)
+	err = db.QueryRow(`SELECT id FROM users WHERE login_norm = ?`, uname.Norm(targetLogin)).Scan(&targetID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return "", false, ErrUserNotFound
 	}

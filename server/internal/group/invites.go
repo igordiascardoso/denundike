@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/jemunje/denundike/internal/uname"
 )
 
 var (
@@ -117,9 +119,8 @@ func CreateCodeInvite(db *sql.DB, groupID, inviterID string) (string, time.Time,
 // InviteFriend sends a direct invitation to an accepted friend of inviterID.
 // It returns the invitee's user id.
 func InviteFriend(db *sql.DB, groupID, inviterID, targetLogin string) (string, error) {
-	targetLogin = strings.TrimPrefix(strings.TrimSpace(targetLogin), "@")
 	var inviteeID string
-	err := db.QueryRow(`SELECT id FROM users WHERE login = ?`, targetLogin).Scan(&inviteeID)
+	err := db.QueryRow(`SELECT id FROM users WHERE login_norm = ?`, uname.Norm(targetLogin)).Scan(&inviteeID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return "", ErrUserNotFound
 	}

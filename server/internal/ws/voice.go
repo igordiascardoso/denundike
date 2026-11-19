@@ -119,7 +119,7 @@ func (c *Client) voiceJoin(channelID string) {
 		c.voiceError("room full")
 		return
 	}
-	me := voiceUser{UserID: c.userID, Login: c.login}
+	me := voiceUser{UserID: c.userID, Login: c.Login()}
 	var peers []voiceUser
 	var peerIDs []string
 	for id, m := range room.members {
@@ -142,7 +142,7 @@ func (c *Client) voiceJoin(channelID string) {
 		peers = []voiceUser{}
 	}
 	h.NotifyUsers([]string{c.userID}, map[string]any{"type": "voice_peers", "channel_id": channelID, "peers": peers})
-	h.NotifyUsers(peerIDs, map[string]any{"type": "voice_joined", "channel_id": channelID, "user_id": c.userID, "login": c.login})
+	h.NotifyUsers(peerIDs, map[string]any{"type": "voice_joined", "channel_id": channelID, "user_id": c.userID, "login": c.Login()})
 	if bstate != nil {
 		h.NotifyUsers([]string{c.userID}, bstate)
 	}

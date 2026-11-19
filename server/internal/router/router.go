@@ -64,6 +64,8 @@ func New(db *sql.DB, hub *ws.Hub) *chi.Mux {
 	r.Get("/api/invites/{code}", invite.HandleGetInfo(db))
 	r.With(auth.RequireAuth(db)).Get("/api/ranking", auth.HandleRanking(db))
 	r.With(auth.RequireAuth(db)).Get("/api/me/stats", auth.HandleMyStats(db))
+	r.With(auth.RequireAuth(db)).Get("/api/me/login-available", auth.HandleLoginAvailable(db))
+	r.With(auth.RequireAuth(db)).Patch("/api/me/login", auth.HandleChangeLogin(db, hub))
 
 	r.Route("/api/friends", func(r chi.Router) {
 		r.Use(auth.RequireAuth(db))

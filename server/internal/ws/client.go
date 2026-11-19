@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"log"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -33,6 +34,7 @@ type Client struct {
 	send      chan []byte
 	channelID string
 	userID    string
+	lmu       sync.RWMutex
 	login     string
 	db        *sql.DB
 
@@ -145,5 +147,26 @@ func (c *Client) writePump() {
 				return
 			}
 		}
+	}
+}
+
+// Login returns the user's current @login (it can change while connected).
+func (c *Client) Login() string {
+	c.lmu.RLock()
+	defer c.lmu.RUnlock()
+	return c.login
+}
+
+// RenameUser updates the cached @login of every live connection of userID.
+func (h *Hub) RenameUser(userID, login string) {
+	if h == nil {
+		return
+	}
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	for c := range h.users[userID] {
+		c.lmu.Lock()
+		c.login = login
+		c.lmu.Unlock()
 	}
 }

@@ -10,6 +10,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/jemunje/denundike/internal/uname"
 )
 
 var (
@@ -68,13 +70,13 @@ func newInviteCode() (string, error) {
 // RecoverPassword resets the password using the recovery code, revokes every old session,
 // opens a fresh one and rotates the recovery code (the new one is returned once).
 func RecoverPassword(db *sql.DB, login, code, newPassword string) (token string, user *User, newCode string, err error) {
-	login = strings.TrimPrefix(strings.TrimSpace(login), "@")
+	login = uname.Clean(login)
 	if len(newPassword) < 8 {
 		return "", nil, "", ErrWeakPassword
 	}
 	var id string
 	var stored sql.NullString
-	qerr := db.QueryRow(`SELECT id, recovery_hash FROM users WHERE login = ? COLLATE NOCASE`, login).Scan(&id, &stored)
+	qerr := db.QueryRow(`SELECT id, recovery_hash FROM users WHERE login_norm = ?`, uname.Norm(login)).Scan(&id, &stored)
 	if errors.Is(qerr, sql.ErrNoRows) || (qerr == nil && !stored.Valid) || (qerr == nil && stored.String == "") {
 		return "", nil, "", ErrInvalidRecovery
 	}

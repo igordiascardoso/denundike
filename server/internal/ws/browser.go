@@ -89,7 +89,7 @@ func (h *Hub) browserStart(c *Client, in inbound) {
 		c.browserError("session active")
 		return
 	}
-	room.browser = &browserSession{hostID: c.userID, hostLogin: c.login, url: d.URL}
+	room.browser = &browserSession{hostID: c.userID, hostLogin: c.Login(), url: d.URL}
 	msg := browserStateMsg(in.ChannelID, room.browser)
 	ids := memberIDs(room)
 	h.voice.mu.Unlock()
@@ -249,7 +249,7 @@ func (h *Hub) browserCmd(c *Client, in inbound, kind string) {
 			}
 			h.NotifyUsers(others, map[string]any{
 				"type": "browser_cursor", "channel_id": in.ChannelID,
-				"user_id": c.userID, "login": c.login, "x": m.X, "y": m.Y,
+				"user_id": c.userID, "login": c.Login(), "x": m.X, "y": m.Y,
 			})
 		}
 	default:
@@ -257,6 +257,6 @@ func (h *Hub) browserCmd(c *Client, in inbound, kind string) {
 	}
 	h.NotifyUsers([]string{b.hostID}, map[string]any{
 		"type": "browser_cmd", "channel_id": in.ChannelID,
-		"from": c.userID, "login": c.login, "kind": kind, "data": payload,
+		"from": c.userID, "login": c.Login(), "kind": kind, "data": payload,
 	})
 }

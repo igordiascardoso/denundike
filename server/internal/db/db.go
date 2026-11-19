@@ -2,6 +2,9 @@ package db
 
 import (
 	"database/sql"
+	"log"
+
+	"github.com/jemunje/denundike/internal/uname"
 
 	_ "modernc.org/sqlite"
 )
@@ -114,10 +117,16 @@ func migrate(database *sql.DB) error {
 		{"users", "points", "INTEGER NOT NULL DEFAULT 0"},
 		{"users", "first_msg_awarded", "INTEGER NOT NULL DEFAULT 0"},
 		{"group_members", "role", "TEXT NOT NULL DEFAULT 'member'"},
+		{"users", "login_norm", "TEXT"},
+		{"users", "login_changed_at", "DATETIME"},
 	} {
 		if err := addColumn(database, c[0], c[1], c[2]); err != nil {
 			return err
 		}
+	}
+
+	if err := backfillLoginNorm(database); err != nil {
+		return err
 	}
 
 	// The creator of every group is its owner; idempotent backfill for groups that predate roles.
@@ -165,4 +174,38 @@ func addColumn(database *sql.DB, table, col, def string) error {
 	}
 	_, err = database.Exec("ALTER TABLE " + table + " ADD COLUMN " + col + " " + def)
 	return err
+}
+
+// backfillLoginNorm fills users.login_norm (accent-free lowercase key, see package uname)
+// for rows that do not have it yet, then tries to enforce uniqueness on it.
+// Existing logins are never altered; if two legacy logins collide once accents are
+// ignored, the unique index is skipped (the application still checks before writes).
+func backfillLoginNorm(database *sql.DB) error {
+	rows, err := database.Query(`SELECT id, login FROM users WHERE login_norm IS NULL OR login_norm = ''`)
+	if err != nil {
+		return err
+	}
+	type row struct{ id, login string }
+	var todo []row
+	for rows.Next() {
+		var r row
+		if err := rows.Scan(&r.id, &r.login); err != nil {
+			rows.Close()
+			return err
+		}
+		todo = append(todo, r)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	for _, r := range todo {
+		if _, err := database.Exec(`UPDATE users SET login_norm = ? WHERE id = ?`, uname.Norm(r.login), r.id); err != nil {
+			return err
+		}
+	}
+	if _, err := database.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_login_norm ON users(login_norm)`); err != nil {
+		log.Printf("aviso: índice único de login_norm não criado (logins antigos colidem sem acento): %v", err)
+	}
+	return nil
 }
