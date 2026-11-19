@@ -8,6 +8,8 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/jemunje/denundike/internal/auth"
+	"github.com/jemunje/denundike/internal/friend"
+	"github.com/jemunje/denundike/internal/invite"
 )
 
 // allowedOrigin returns true for origins that the Electron client and local dev
@@ -51,6 +53,15 @@ func New(db *sql.DB) *chi.Mux {
 	})
 
 	r.With(auth.RequireAuth(db)).Post("/api/invites", auth.HandleCreateInvite(db))
+	r.Get("/api/invites/{code}", invite.HandleGetInfo(db))
+
+	r.Route("/api/friends", func(r chi.Router) {
+		r.Use(auth.RequireAuth(db))
+		r.Get("/", friend.HandleList(db))
+		r.Post("/request", friend.HandleRequest(db))
+		r.Post("/{id}/accept", friend.HandleAccept(db))
+		r.Post("/{id}/reject", friend.HandleReject(db))
+	})
 
 	return r
 }

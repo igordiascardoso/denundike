@@ -52,7 +52,16 @@ func migrate(database *sql.DB) error {
 			used_at    DATETIME,
 			expires_at DATETIME NOT NULL
 		)`,
-		// Tasks 2 and 3 will append their CREATE TABLE IF NOT EXISTS here.
+		// --- friends (Task 2) ---
+		`CREATE TABLE IF NOT EXISTS friendships (
+			id           TEXT PRIMARY KEY,
+			requester_id TEXT NOT NULL REFERENCES users(id),
+			addressee_id TEXT NOT NULL REFERENCES users(id),
+			status       TEXT NOT NULL DEFAULT 'pending',
+			created_at   DATETIME DEFAULT CURRENT_TIMESTAMP,
+			UNIQUE(requester_id, addressee_id)
+		)`,
+		// Tasks 3+ will append their CREATE TABLE IF NOT EXISTS here.
 	}
 
 	for _, stmt := range stmts {
