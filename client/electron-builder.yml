@@ -3,7 +3,7 @@ productName: Denundike
 publish:
   provider: github
   owner: igordiascardoso
-  repo: denundike
+  repo: denundike-releases
 win:
   target: nsis
 linux:

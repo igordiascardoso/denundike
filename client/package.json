@@ -3,17 +3,18 @@
   "version": "0.1.0",
   "description": "Cliente Electron do Denundike",
   "main": "main.js",
+  "author": "Igor Dias Cardoso",
   "private": true,
   "scripts": {
     "start": "electron .",
-    "build": "electron-builder --win",
-    "build:linux": "electron-builder --linux"
+    "build": "electron-builder --win --publish always",
+    "build:linux": "electron-builder --linux --publish always"
   },
   "dependencies": {
-    "electron": "^45.3.4",
     "electron-updater": "^6.8.11"
   },
   "devDependencies": {
+    "electron": "^45.3.4",
     "electron-builder": "^26.18.0"
   }
 }

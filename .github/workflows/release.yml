@@ -18,7 +18,7 @@ jobs:
       - run: npm run build
         working-directory: client
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
 
   build-linux:
     runs-on: ubuntu-latest
@@ -32,4 +32,4 @@ jobs:
       - run: npm run build:linux
         working-directory: client
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
