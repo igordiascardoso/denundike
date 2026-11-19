@@ -1,0 +1,13 @@
+{
+  "name": "denundike-client",
+  "version": "0.1.0",
+  "description": "Cliente Electron do Denundike",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron ."
+  },
+  "dependencies": {
+    "electron": "^45.3.4"
+  }
+}
