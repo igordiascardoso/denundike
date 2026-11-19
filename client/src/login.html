@@ -456,7 +456,7 @@ $('#login').addEventListener('submit',function(e){
   if(!pw){var p=fail(f.pw,'Informe sua senha.');bad=bad||p}
   if(bad){sig('err');bad.focus();return}
   clear(f);busy(f,true);
-  api.login(id,pw).then(function(data){
+  Promise.resolve().then(function(){return api.login(id,pw)}).then(function(data){
     try{localStorage.setItem('denundike_token',data.token);localStorage.setItem('denundike_user',JSON.stringify(data.user))}catch(ex){}
     sig('ok');
     setTimeout(function(){window.bridge.openMain()},900);
@@ -487,7 +487,7 @@ $('#register').addEventListener('submit',function(e){
   var lg=f.lg.value.trim().replace(/^@/,'');
   var em=f.em.value.trim();
   var pw=f.pw.value;
-  api.register(lg,em,pw,inviteCode).then(function(){
+  Promise.resolve().then(function(){return api.register(lg,em,pw,inviteCode)}).then(function(){
     // auto-login após registro
     return api.login(lg,pw);
   }).then(function(data){
