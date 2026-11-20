@@ -482,7 +482,7 @@ async function startSession(sender, url, opts, retried) {
     '--remote-debugging-address=127.0.0.1',
     '--disable-blink-features=AutomationControlled',
     '--test-type',
-    '--window-size=' + (win.w + FRAME_W) + ',' + (win.h + FRAME_H), '--window-position=30,20',
+    '--window-size=' + (win.w + FRAME_W) + ',' + (win.h + FRAME_H), '--window-position=-12000,0',
     '--no-first-run', '--no-default-browser-check',
     '--disable-gpu',
     '--autoplay-policy=no-user-gesture-required',

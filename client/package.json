@@ -1,6 +1,6 @@
 {
   "name": "denundike-client",
-  "version": "0.2.20",
+  "version": "0.2.21",
   "description": "Cliente Electron do Denundike",
   "main": "main.js",
   "author": "Igor Dias Cardoso",
