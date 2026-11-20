@@ -9,10 +9,12 @@ app.setName('Denundike');
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 // Sem isso o Windows agrupa a janela/ícone da barra de tarefas sob o Electron genérico.
 if (process.platform === 'win32') app.setAppUserModelId('com.denundike.app');
-// No Linux (Wayland/Ubuntu moderno) o compartilhamento de tela precisa passar pelo portal PipeWire.
+// No Linux, PipeWire permite compartilhamento de tela em chamadas mesmo em modo X11/XWayland.
+// Forçamos X11 para o Electron poder enumerar janelas com desktopCapturer sem acionar o portal
+// XDG do Wayland (que mostra uma janela pedindo permissão em cima do Chrome compartilhado).
 if (process.platform === 'linux') {
   app.commandLine.appendSwitch('enable-features', 'WebRTCPipeWireCapturer');
-  app.commandLine.appendSwitch('ozone-platform-hint', 'auto');
+  app.commandLine.appendSwitch('ozone-platform-hint', 'x11');
 }
 
 const APP_ICON = path.join(__dirname, 'assets', 'icon.png');
