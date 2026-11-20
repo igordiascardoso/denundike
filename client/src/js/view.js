@@ -16,7 +16,7 @@
     return gain;
   }
   function applyVolToEl(el, vol, muted) {
-    const eff = muted ? 0 : Math.max(0, vol);
+    const eff = muted ? 0 : Math.max(0, vol) * (window.dkOutVol ? window.dkOutVol() : 1);
     if (eff === 0) {
       el.muted = true;
       if (_gainMap.has(el)) _gainMap.get(el).gain.value = 0;
@@ -84,6 +84,7 @@
     if (volKey) syncVolPop();
   }
 
+  window.applyAllVolumes = applyAllVolumes;
   $('#bVol').oninput = (e) => setVol('browser', { v: e.target.value / 100, m: false });
   $('#bMute').onclick = () => setVol('browser', { m: !getVol('browser').m });
   const sVolSet = (e) => { if (centerKey && centerKey.startsWith('screen:')) setVol('s:' + centerKey.slice(7), { v: e.target.value / 100, m: false }); };

@@ -152,7 +152,8 @@ select.in{appearance:none;background:var(--bg0) url("data:image/svg+xml,%3Csvg x
 .snav h3{font:600 11px var(--body);letter-spacing:.09em;text-transform:uppercase;color:var(--dim);padding:6px 10px}
 .snav button{text-align:left;padding:8px 10px;border-radius:var(--r-s);color:var(--muted)}
 .snav button:hover{background:var(--bg3);color:var(--text)}.snav button[aria-selected=true]{background:var(--bg4);color:var(--text);font-weight:600}
-.snav .out{margin-top:auto;color:var(--hot)}
+.snav .out{margin-top:auto;text-align:center;font-weight:600;color:var(--hot);background:var(--bg2);border:1px solid var(--line)}
+.snav .out:hover{background:var(--hot);color:#fff;border-color:var(--hot)}
 .spane{padding:26px 28px;overflow:auto;display:grid;gap:16px;align-content:start;height:100%}
 .spane h2{font-size:22px;font-weight:800}
 .prof{display:flex;align-items:center;gap:18px;padding:16px;background:var(--bg1);border-radius:var(--r-m);border:1px solid var(--line)}
@@ -730,7 +731,13 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
       <label class="l" style="margin-top:12px">Saída de áudio
         <select class="in" id="audioOutSel"><option value="">Padrão do sistema</option></select>
       </label>
-      <p style="color:var(--dim);font-size:12px;margin-top:12px">As alterações valem na próxima chamada. A saída muda imediatamente para quem já está em chamada.</p>
+      <label class="l" style="margin-top:12px"><span style="display:flex;justify-content:space-between">Volume do fone <b id="audioOutVolVal">100%</b></span>
+        <input type="range" id="audioOutVol" min="0" max="200" value="100" aria-label="Volume do fone">
+      </label>
+      <label class="l" style="margin-top:12px"><span style="display:flex;justify-content:space-between">Volume do microfone <b id="audioMicVolVal">100%</b></span>
+        <input type="range" id="audioMicVol" min="0" max="200" value="100" aria-label="Volume do microfone">
+      </label>
+      <p style="color:var(--dim);font-size:12px;margin-top:12px">Os volumes valem na hora. A troca de microfone vale na próxima chamada; a saída muda imediatamente para quem já está em chamada.</p>
     </div>
 
   </div>
@@ -746,6 +753,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
   </div>
 </div></div>
 
+<script src="js/sfx.js"></script>
 <script src="js/call.js"></script>
 <script src="js/browser.js"></script>
 <script>
@@ -1739,10 +1747,26 @@ $$('input[type=range]').forEach(r => { rng(r); r.oninput = () => rng(r); });
       outSel.value = localStorage.getItem('dk_out_device') || '';
     } catch (_) {}
   }
+  // volumes do fone (tudo o que você ouve) e do microfone (o que sai para a chamada), de 0 a 200%
+  const outVol = $('#audioOutVol'), micVol = $('#audioMicVol');
+  const bindVol = (el, label, key, apply) => {
+    if (!el) return;
+    const show = (v) => { el.value = Math.round(v * 100); $(label).textContent = el.value + '%'; if (typeof rng === 'function') rng(el); };
+    show(key === 'dk_out_vol' ? window.dkOutVol() : window.dkMicVol());
+    el.addEventListener('input', () => {
+      const v = el.value / 100;
+      try { localStorage.setItem(key, String(v)); } catch (_) {}
+      $(label).textContent = el.value + '%';
+      apply(v);
+    });
+  };
+  bindVol(outVol, '#audioOutVolVal', 'dk_out_vol', () => { if (window.applyAllVolumes) window.applyAllVolumes(); });
+  bindVol(micVol, '#audioMicVolVal', 'dk_mic_vol', (v) => { if (call._micGain) call._micGain.gain.value = v; });
   micSel.onchange = () => { localStorage.setItem('dk_mic_device', micSel.value); };
   outSel.onchange = () => {
     const id = outSel.value;
     localStorage.setItem('dk_out_device', id);
+    if (window.sfx) window.sfx.sink();
     // aplica imediatamente em todos os vídeos de chamada ativos
     document.querySelectorAll('.tile video, #sv').forEach(v => { if (v.setSinkId) v.setSinkId(id).catch(() => {}); });
   };

@@ -61,6 +61,8 @@
     get browserOn() { return !!this.browserStream; }
 
     _changed() { try { this.o.onChange(); } catch (_) {} }
+    // sons da chamada; os de outras pessoas ficam em silêncio com o fone desligado
+    _sfx(name, others) { if (others && this.deafened) return; try { window.sfx && window.sfx.play(name); } catch (_) {} }
 
     /* ── entrar / sair ── */
     async join(channelId) {
@@ -77,7 +79,19 @@
         const s = await navigator.mediaDevices.getUserMedia({
           audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, ...(micId ? { deviceId: { ideal: micId } } : {}) },
         });
-        this.mic = s.getAudioTracks()[0];
+        this._micRaw = s.getAudioTracks()[0];
+        this.mic = this._micRaw;
+        // o volume do microfone (Configurações > Áudio) passa por um ganho antes de ir para a chamada
+        try {
+          if (this._ctx) {
+            const src = this._ctx.createMediaStreamSource(new MediaStream([this._micRaw]));
+            this._micGain = this._ctx.createGain();
+            this._micGain.gain.value = window.dkMicVol ? window.dkMicVol() : 1;
+            const dst = this._ctx.createMediaStreamDestination();
+            src.connect(this._micGain); this._micGain.connect(dst);
+            this.mic = dst.stream.getAudioTracks()[0];
+          }
+        } catch (_) { this.mic = this._micRaw; }
         this.mic.enabled = !this.muted;
         this.camStream.addTrack(this.mic);
         this._watchSelf();
@@ -96,6 +110,7 @@
       if (this.channelId !== channelId) return;
 
       this.o.send({ type: 'voice_join', channel_id: channelId });
+      this._sfx('join');
       this._startSpeakLoop();
       clearInterval(this._statsT); this._statsT = setInterval(() => this._pollStats(), 3000);
       this._changed();
@@ -108,10 +123,11 @@
     }
 
     _teardown() {
+      if (this.channelId) this._sfx('leave');
       for (const id of [...this.peers.keys()]) this._removePeer(id);
-      [this.mic, this.camTrack].forEach(t => { try { t && t.stop(); } catch (_) {} });
+      [this.mic, this._micRaw, this.camTrack].forEach(t => { try { t && t.stop(); } catch (_) {} });
       if (this.screenStream) this.screenStream.getTracks().forEach(t => { try { t.stop(); } catch (_) {} });
-      this.mic = null; this.camTrack = null; this.camStream = null; this.screenStream = null; this.browserStream = null;
+      this.mic = null; this._micRaw = null; this._micGain = null; this.camTrack = null; this.camStream = null; this.screenStream = null; this.browserStream = null;
       this._selfAnalyser = null;
       clearInterval(this._speakTimer); this._speakTimer = null;
       clearInterval(this._statsT); this._statsT = null; this.sendStats = null; this._prev = null;
@@ -123,9 +139,12 @@
 
     /* ── mutar / ensurdecer ── */
     setMuted(m) {
+      const wasMuted = this.muted, wasDeaf = this.deafened;
       this.muted = !!m;
       if (this.mic) this.mic.enabled = !this.muted;
       if (!this.muted && this.deafened) this.deafened = false;
+      if (wasDeaf && !this.deafened) this._sfx('undeafen');
+      else if (wasMuted !== this.muted) this._sfx(this.muted ? 'mute' : 'unmute');
       this._sendMedia();
       this._changed();
     }
@@ -134,6 +153,7 @@
       d = !!d;
       if (d === this.deafened) return;
       this.deafened = d;
+      this._sfx(d ? 'deafen' : 'undeafen');
       if (d) { this._mutedBeforeDeaf = this.muted; this.muted = true; }
       else { this.muted = this._mutedBeforeDeaf; }
       if (this.mic) this.mic.enabled = !this.muted;
@@ -251,11 +271,13 @@
         case 'voice_joined':
           if (ev.channel_id !== this.channelId) return;
           this._addPeer({ user_id: ev.user_id, login: ev.login }, false);
+          this._sfx('join', true);
           this._sendMedia();
           this._changed();
           break;
         case 'voice_left':
           if (ev.channel_id !== this.channelId) return;
+          if (this.peers.has(ev.user_id)) this._sfx('leave', true);
           this._removePeer(ev.user_id);
           this._changed();
           break;
