@@ -392,10 +392,24 @@ function killTree(proc) {
   else { try { proc.kill('SIGTERM'); } catch (_) {} }
 }
 
+/** perfil marcado como saída normal: evita o aviso "Restaurar páginas?" depois de um fechamento forçado */
+function markCleanExit(profileDir) {
+  const f = path.join(profileDir, 'Default', 'Preferences');
+  try {
+    const p = JSON.parse(fs.readFileSync(f, 'utf8'));
+    p.profile = p.profile || {};
+    p.profile.exit_type = 'Normal';
+    p.profile.exited_cleanly = true;
+    fs.writeFileSync(f, JSON.stringify(p));
+  } catch (_) {}
+}
+
 async function stopSession(notify) {
   const s = cur; cur = null;
   if (!s) return;
   clearInterval(s.poll);
+  // fecha o Chrome pelo DevTools (saída limpa); o kill só entra se ele não sair
+  if (s.cdp) { try { await Promise.race([s.cdp.send('Browser.close'), sleep(1500)]); } catch (_) {} }
   try { s.cdp.ws.close(); } catch (_) {}
   killTree(s.proc);
   if (notify && s.sender && !s.sender.isDestroyed()) s.sender.send('browser-ended');
@@ -480,6 +494,7 @@ async function startSession(sender, url, opts, retried) {
   const profileDir = path.join(app.getPath('userData'), 'chrome-profile');
   fs.mkdirSync(profileDir, { recursive: true });
   try { fs.unlinkSync(path.join(profileDir, 'DevToolsActivePort')); } catch (_) {}
+  markCleanExit(profileDir);
 
   const args = [
     '--user-data-dir=' + profileDir,
@@ -487,14 +502,15 @@ async function startSession(sender, url, opts, retried) {
     '--remote-debugging-address=127.0.0.1',
     '--disable-blink-features=AutomationControlled',
     '--test-type',
-    '--window-size=' + (win.w + FRAME_W) + ',' + (win.h + FRAME_H), '--window-position=-12000,0',
+    '--window-size=' + (win.w + FRAME_W) + ',' + (win.h + FRAME_H), '--window-position=30,20',
     '--no-first-run', '--no-default-browser-check',
     '--disable-gpu',
     '--autoplay-policy=no-user-gesture-required',
     '--disable-backgrounding-occluded-windows', '--disable-renderer-backgrounding',
     '--disable-background-timer-throttling',
-    // abre uma aba com o token no título para acharmos a janela; navega para o Google logo depois
-    'data:text/html,<title>' + token + '</title><script>setTimeout(()=>location.replace("https://www.google.com.br"),80)</script>',
+    '--disable-session-crashed-bubble', '--hide-crash-restore-bubble', '--noerrdialogs',
+    // aba com o token no título para acharmos a janela; fica assim até o app navegar por CDP (um redirecionamento rápido fazia o título sumir antes da busca)
+    'data:text/html,<title>' + token + '</title>',
   ];
   // O Chrome de marca (137+) ignora --load-extension. O que funciona é carregar a extensão pelo protocolo
   // DevTools (Extensions.loadUnpacked), que exige --enable-unsafe-extension-debugging. A porta só escuta em 127.0.0.1.
