@@ -93,6 +93,7 @@ func Delete(db *sql.DB, groupID string) (name string, members, channels []string
 	for _, q := range []string{
 		`DELETE FROM messages WHERE channel_id IN (SELECT id FROM channels WHERE group_id = ?1)`,
 		`DELETE FROM channels WHERE group_id = ?1`,
+		`DELETE FROM group_avatars WHERE group_id = ?1`,
 		`DELETE FROM group_invites WHERE group_id = ?1`,
 		`DELETE FROM group_members WHERE group_id = ?1`,
 		`DELETE FROM groups WHERE id = ?1`,

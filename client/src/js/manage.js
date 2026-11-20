@@ -104,7 +104,11 @@
       { label: 'Convidar pessoas', icon: 'uplus', fn: inGroup(() => openInvite(document.activeElement)) },
       { label: 'Membros e papéis', icon: 'users', fn: inGroup(() => setMem(true)) },
     ];
-    if (canManage(r)) items.push({ label: 'Editar nome do grupo', icon: 'sl', fn: () => editGroupName(g) });
+    if (canManage(r)) {
+      items.push({ label: 'Editar nome do grupo', icon: 'sl', fn: () => editGroupName(g) });
+      items.push({ label: 'Alterar foto do grupo', icon: 'cam', fn: () => chooseGroupAvatar(g.id) });
+      if (GAV[g.id]) items.push({ label: 'Remover foto do grupo', icon: 'x', fn: () => removeGroupAvatar(g.id) });
+    }
     items.push('hr');
     if (r === 'owner') {
       items.push({ label: 'Excluir grupo', icon: 'x', danger: true, fn: () => deleteGroup(g) });

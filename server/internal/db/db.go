@@ -90,6 +90,18 @@ func migrate(database *sql.DB) error {
 			text       TEXT NOT NULL,
 			created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 		)`,
+		`CREATE TABLE IF NOT EXISTS group_avatars (
+			group_id TEXT PRIMARY KEY REFERENCES groups(id),
+			mime     TEXT NOT NULL,
+			data     BLOB NOT NULL,
+			version  INTEGER NOT NULL
+		)`,
+		`CREATE TABLE IF NOT EXISTS user_avatars (
+			user_id TEXT PRIMARY KEY REFERENCES users(id),
+			mime    TEXT NOT NULL,
+			data    BLOB NOT NULL,
+			version INTEGER NOT NULL
+		)`,
 		`CREATE TABLE IF NOT EXISTS group_invites (
 			id         TEXT PRIMARY KEY,
 			group_id   TEXT NOT NULL REFERENCES groups(id),

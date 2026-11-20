@@ -66,6 +66,10 @@ func New(db *sql.DB, hub *ws.Hub) *chi.Mux {
 	r.With(auth.RequireAuth(db)).Get("/api/me/stats", auth.HandleMyStats(db))
 	r.With(auth.RequireAuth(db)).Get("/api/me/login-available", auth.HandleLoginAvailable(db))
 	r.With(auth.RequireAuth(db)).Patch("/api/me/login", auth.HandleChangeLogin(db, hub))
+	r.With(auth.RequireAuth(db)).Put("/api/me/avatar", auth.HandleSetAvatar(db, hub))
+	r.With(auth.RequireAuth(db)).Delete("/api/me/avatar", auth.HandleDeleteAvatar(db, hub))
+	r.With(auth.RequireAuth(db)).Get("/api/avatar/{id}", auth.HandleGetAvatar(db))
+	r.With(auth.RequireAuth(db)).Get("/api/avatars", auth.HandleAvatarList(db))
 
 	r.Route("/api/friends", func(r chi.Router) {
 		r.Use(auth.RequireAuth(db))
@@ -92,7 +96,12 @@ func New(db *sql.DB, hub *ws.Hub) *chi.Mux {
 		r.Post("/{id}/channels", channel.HandleCreate(db, hub))
 		r.Get("/{id}/channels", channel.HandleList(db))
 		r.Get("/{id}/voice", ws.HandleVoiceList(db, hub))
+		r.Put("/{id}/avatar", group.HandleSetAvatar(db, hub))
+		r.Delete("/{id}/avatar", group.HandleDeleteAvatar(db, hub))
 	})
+
+	r.With(auth.RequireAuth(db)).Get("/api/group-avatar/{id}", group.HandleGetAvatar(db))
+	r.With(auth.RequireAuth(db)).Get("/api/group-avatars", group.HandleAvatarList(db))
 
 	// Direct group invitations received by the caller
 	r.Route("/api/group-invites", func(r chi.Router) {
