@@ -291,10 +291,18 @@ function ensureAdGuard(onProgress) {
 /* ── download do Chrome ── */
 async function downloadChrome(onProgress) {
   if (process.platform === 'win32') {
+    // Chrome já instalado no caminho esperado mas sem marcador? só cria o marcador.
+    const existing = winManagedChromePath();
+    if (fs.existsSync(existing)) {
+      try { fs.writeFileSync(winManagedMarker(), '1'); } catch (_) {}
+      return;
+    }
     const tmpExe = path.join(os.tmpdir(), 'chrome_setup_' + Date.now() + '.exe');
     await downloadFile('https://dl.google.com/chrome/install/standalonesetup64.exe', tmpExe, onProgress);
     await new Promise((res, rej) => {
-      execFile(tmpExe, [], (err) => { try { fs.unlinkSync(tmpExe); } catch (_) {} err ? rej(err) : res(); });
+      // --do-not-launch-chrome evita que o instalador tente abrir o Chrome após instalar,
+      // o que causaria INVALID_OPTION em contexto sem janela de UI.
+      execFile(tmpExe, ['--do-not-launch-chrome'], (err) => { try { fs.unlinkSync(tmpExe); } catch (_) {} err ? rej(err) : res(); });
     });
     // marca que o Chrome foi instalado pelo próprio app
     try { fs.writeFileSync(winManagedMarker(), '1'); } catch (_) {}
