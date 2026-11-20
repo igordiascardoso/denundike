@@ -66,8 +66,14 @@
       if (!call.inCall) return;
       if (this.state.active && this.inThisCall) {
         if (this.hiddenLocal || !this.focused) { this.show(); return; }
-        if (this.isHost) this.stop();
-        else this.el.view.focus();
+        if (this.isHost) {
+          window.openConfirm({
+            title: 'Fechar o navegador compartilhado?',
+            text: 'A transmissão termina para todo mundo na chamada.',
+            ok: 'Fechar navegador',
+            run: async () => this.stop(),
+          });
+        } else this.el.view.focus();
         return;
       }
       if (this.starting) return;
