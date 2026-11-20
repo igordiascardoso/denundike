@@ -19,12 +19,9 @@ function linuxLocalChromePath() {
   return path.join(app.getPath('userData'), 'chrome', 'opt', 'google', 'chrome', 'google-chrome');
 }
 
+// Windows: Chrome for Testing portátil extraído em userData/chrome-win64/chrome.exe
 function winManagedChromePath() {
-  return path.join(process.env.LOCALAPPDATA || '', 'Google', 'Chrome', 'Application', 'chrome.exe');
-}
-
-function winManagedMarker() {
-  return path.join(app.getPath('userData'), 'chrome-managed');
+  return path.join(app.getPath('userData'), 'chrome-win64', 'chrome.exe');
 }
 
 function findChrome() {
@@ -34,12 +31,8 @@ function findChrome() {
     return fs.existsSync(p) ? p : null;
   }
   if (process.platform === 'win32') {
-    // só usa o Chrome se foi instalado pelo próprio app (marcador presente)
-    if (fs.existsSync(winManagedMarker())) {
-      const p = winManagedChromePath();
-      return fs.existsSync(p) ? p : null;
-    }
-    return null;
+    const p = winManagedChromePath();
+    return fs.existsSync(p) ? p : null;
   }
   return null;
 }
@@ -291,21 +284,28 @@ function ensureAdGuard(onProgress) {
 /* ── download do Chrome ── */
 async function downloadChrome(onProgress) {
   if (process.platform === 'win32') {
-    // Chrome já instalado no caminho esperado mas sem marcador? só cria o marcador.
-    const existing = winManagedChromePath();
-    if (fs.existsSync(existing)) {
-      try { fs.writeFileSync(winManagedMarker(), '1'); } catch (_) {}
-      return;
+    // Chrome for Testing: build oficial do Google em ZIP portátil — sem instalador, sem admin.
+    const manifest = await httpsJson('https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions-with-downloads.json', 15000);
+    const downloads = manifest && manifest.channels && manifest.channels.Stable && manifest.channels.Stable.downloads && manifest.channels.Stable.downloads.chrome;
+    if (!Array.isArray(downloads)) throw new Error('manifesto CfT inválido');
+    const win64 = downloads.find((d) => d && d.platform === 'win64');
+    if (!win64 || !win64.url) throw new Error('chrome-win64 não encontrado no manifesto CfT');
+
+    const tmpZip = path.join(os.tmpdir(), 'chrome_win64_' + Date.now() + '.zip');
+    const destDir = path.join(app.getPath('userData'), 'chrome-win64');
+    const tmpDir = destDir + '-tmp';
+    try {
+      await downloadFile(win64.url, tmpZip, onProgress);
+      try { fs.rmSync(destDir, { recursive: true, force: true }); } catch (_) {}
+      try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch (_) {}
+      await extractZip(tmpZip, tmpDir);
+      // o ZIP extrai como chrome-win64/ dentro do tmpDir
+      const inner = path.join(tmpDir, 'chrome-win64');
+      fs.renameSync(fs.existsSync(inner) ? inner : tmpDir, destDir);
+    } finally {
+      try { fs.rmSync(tmpZip, { force: true }); } catch (_) {}
+      try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch (_) {}
     }
-    const tmpExe = path.join(os.tmpdir(), 'chrome_setup_' + Date.now() + '.exe');
-    await downloadFile('https://dl.google.com/chrome/install/standalonesetup64.exe', tmpExe, onProgress);
-    await new Promise((res, rej) => {
-      // --do-not-launch-chrome evita que o instalador tente abrir o Chrome após instalar,
-      // o que causaria INVALID_OPTION em contexto sem janela de UI.
-      execFile(tmpExe, ['--do-not-launch-chrome'], (err) => { try { fs.unlinkSync(tmpExe); } catch (_) {} err ? rej(err) : res(); });
-    });
-    // marca que o Chrome foi instalado pelo próprio app
-    try { fs.writeFileSync(winManagedMarker(), '1'); } catch (_) {}
   } else if (process.platform === 'linux') {
     const tmpDeb = path.join(os.tmpdir(), 'chrome_' + Date.now() + '.deb');
     await downloadFile('https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb', tmpDeb, onProgress);
