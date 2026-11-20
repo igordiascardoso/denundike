@@ -197,6 +197,13 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 .burl{flex:1;min-width:0;height:34px;border-radius:17px;background:var(--bg3);border:1px solid var(--line2);color:var(--text);padding:0 14px;font:13px var(--body)}
 .burl:focus{outline:none;border-color:var(--accent)}
 .bwho{color:var(--muted);font-size:12.5px;white-space:nowrap}
+.btabs{display:flex;gap:4px;padding:6px 8px 0;overflow-x:auto;flex:none}
+.btab{display:flex;align-items:center;gap:6px;min-width:90px;max-width:200px;padding:6px 8px 6px 12px;border-radius:8px 8px 0 0;background:rgba(255,255,255,.05);color:inherit;font-size:12px;cursor:pointer;white-space:nowrap}
+.btab.on{background:rgba(255,255,255,.14)}
+.btab span{flex:1;overflow:hidden;text-overflow:ellipsis}
+.btab b{font-weight:400;opacity:.6;padding:0 4px;border-radius:4px}
+.btab b:hover{opacity:1;background:rgba(255,255,255,.15)}
+.btab.add{min-width:0;padding:6px 12px;font-size:15px}
 .bview{position:relative;flex:1;min-height:0;background:#000;outline:none;cursor:default}
 .bview:focus{box-shadow:inset 0 0 0 2px var(--accent-soft)}
 .bview video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000}
@@ -440,6 +447,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
           </div>
         </div>
         <div class="bstage" id="bStage" hidden>
+          <div class="btabs" id="bTabs" hidden></div>
           <form class="btool" id="bForm">
             <button type="button" class="ib" id="bBack" aria-label="Voltar" title="Voltar"><svg class="i"><use href="#bk"/></svg></button>
             <button type="button" class="ib" id="bFwd" aria-label="Avançar" title="Avançar"><svg class="i"><use href="#fw"/></svg></button>

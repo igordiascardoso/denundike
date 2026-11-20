@@ -40,6 +40,7 @@
         window.bridge.browser.onEnded(() => { if (this.local) { this._sendCall('browser_stop'); this._stopLocal(); this.o.toast('O navegador do anfitrião foi fechado — sessão encerrada.'); } });
         window.bridge.browser.onSize(() => this._recalibrateSoon());
         window.bridge.browser.onFrame((d) => this._onFrame(d));
+        window.bridge.browser.onTabs((t) => this._renderTabs(t));
         window.bridge.browser.onMotion((m) => {
           const t = this.local && this.local.out && this.local.out.getVideoTracks()[0];
           // no modo automático o app troca a dica quando há vídeo tocando na página; nos outros modos vale a escolha do usuário
@@ -50,6 +51,35 @@
         });
         window.bridge.browser.onPrep((p) => this._onPrep(p));
       }
+    }
+
+    /** barra de abas do anfitrião (as abas são do Chrome dele; os outros só veem a transmissão) */
+    _renderTabs(tabs) {
+      const box = document.getElementById('bTabs');
+      if (!box) return;
+      if (!this.local || !tabs || !tabs.length) { box.hidden = true; box.textContent = ''; return; }
+      box.hidden = false;
+      box.textContent = '';
+      const tb = window.bridge.browser;
+      for (const t of tabs) {
+        const el = document.createElement('div');
+        el.className = 'btab' + (t.active ? ' on' : '');
+        const label = document.createElement('span');
+        label.textContent = t.title || t.url.replace(/^https?:\/\/(www\.)?/, '') || 'Nova aba';
+        const x = document.createElement('b');
+        x.textContent = '×';
+        x.title = 'Fechar aba';
+        x.onclick = (e) => { e.stopPropagation(); tb.tab({ action: 'close', id: t.id }); };
+        el.append(label, x);
+        el.onclick = () => tb.tab({ action: 'switch', id: t.id });
+        box.append(el);
+      }
+      const add = document.createElement('div');
+      add.className = 'btab add';
+      add.textContent = '+';
+      add.title = 'Nova aba';
+      add.onclick = () => tb.tab({ action: 'new' });
+      box.append(add);
     }
 
     get isHost() { return !!(this.state.active && this.state.host_id === this.o.me.id); }

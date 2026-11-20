@@ -525,17 +525,33 @@ async function startSession(sender, url, opts, retried) {
     // Abas novas (links com target=_blank, pop-ups) não existem na tela compartilhada: o endereço abre na
     // própria aba e a nova é fechada. As páginas que o AdGuard abre ao instalar são só fechadas.
     s.cdp.send('Target.setDiscoverTargets', { discover: true }).catch(() => {});
+    s.tabs = new Map();
     s.onTarget = (m) => {
+      if (m.method === 'Target.targetDestroyed') {
+        const id = m.params && m.params.targetId;
+        if (s.tabs.delete(id)) {
+          if (id === s.targetId) {
+            const rest = [...s.tabs.keys()];
+            if (rest.length) switchTab(s, rest[rest.length - 1]).catch(() => {});
+            else s.cdp.send('Target.createTarget', { url: 'https://www.google.com' }).catch(() => {});
+          }
+          sendTabs(s);
+        }
+        return;
+      }
       if (m.method !== 'Target.targetCreated' && m.method !== 'Target.targetInfoChanged') return;
       const t = m.params && m.params.targetInfo;
-      if (!t || t.type !== 'page' || !s.targetId || t.targetId === s.targetId) return;
+      if (!t || t.type !== 'page') return;
       const u = t.url || '';
       if (/^chrome-extension:\/\//i.test(u) || /^https?:\/\/([\w-]+\.)*adguard\.(com|org|info)\b/i.test(u)) {
-        s.cdp.send('Target.closeTarget', { targetId: t.targetId }).catch(() => {});
-      } else if (isWebUrl(u)) {
-        s.cdp.send('Target.closeTarget', { targetId: t.targetId }).catch(() => {});
-        s.cdp.send('Page.navigate', { url: u }, s.sessionId).catch(() => {});
+        if (t.targetId !== s.targetId) s.cdp.send('Target.closeTarget', { targetId: t.targetId }).catch(() => {});
+        return;
       }
+      const isNew = !s.tabs.has(t.targetId);
+      s.tabs.set(t.targetId, { id: t.targetId, title: /^DNDK-/.test(t.title || '') ? '' : (t.title || ''), url: u });
+      // aba nova (link com target=_blank, pop-up ou botão +): a transmissão passa a mostrar ela
+      if (isNew && s.targetId && t.targetId !== s.targetId) switchTab(s, t.targetId).catch(() => {});
+      sendTabs(s);
     };
 
     if (adguardDir()) await loadAdguard(s);
@@ -549,6 +565,7 @@ async function startSession(sender, url, opts, retried) {
     }
     if (!target) throw new Error('no page');
     s.targetId = target.targetId;
+    s.tabs.set(target.targetId, { id: target.targetId, title: '', url: '' });
     s.sessionId = (await s.cdp.send('Target.attachToTarget', { targetId: target.targetId, flatten: true })).sessionId;
     await s.cdp.send('Page.enable', {}, s.sessionId);
     s.cdp.onEvent = (m) => {
@@ -616,8 +633,36 @@ async function startSession(sender, url, opts, retried) {
   }
 }
 
+function sendTabs(s) {
+  if (cur !== s || s.sender.isDestroyed()) return;
+  clearTimeout(s.tabsT);
+  s.tabsT = setTimeout(() => {
+    if (cur === s && !s.sender.isDestroyed()) s.sender.send('browser-tabs', [...s.tabs.values()].map((t) => ({ id: t.id, title: t.title, url: t.url, active: t.id === s.targetId })));
+  }, 80);
+}
+
+/** passa a transmissão para outra aba do Chrome */
+async function switchTab(s, id) {
+  if (!s.cdp || id === s.targetId || !s.tabs.has(id)) return;
+  const old = s.sessionId;
+  const { sessionId } = await s.cdp.send('Target.attachToTarget', { targetId: id, flatten: true });
+  s.cdp.send('Page.stopScreencast', {}, old).catch(() => {});
+  s.targetId = id; s.sessionId = sessionId; s.vp = null; s.vpAt = 0;
+  await s.cdp.send('Page.enable', {}, sessionId);
+  try {
+    const v = await s.cdp.send('Browser.getVersion');
+    await s.cdp.send('Emulation.setUserAgentOverride', { userAgent: String(v.userAgent || '').replace('HeadlessChrome', 'Chrome') }, sessionId);
+  } catch (_) {}
+  s.cdp.send('Target.activateTarget', { targetId: id }).catch(() => {});
+  await startCast(s, s.win);
+  const t = s.tabs.get(id);
+  if (t && t.url && !s.sender.isDestroyed()) s.sender.send('browser-url', t.url);
+  sendTabs(s);
+}
+
 /** fixa o viewport em w x h e começa a receber os quadros da página */
 async function startCast(s, win) {
+  s.win = win;
   await s.cdp.send('Emulation.setDeviceMetricsOverride', { width: win.w, height: win.h, deviceScaleFactor: 1, mobile: false }, s.sessionId);
   await s.cdp.send('Page.startScreencast', { format: 'jpeg', quality: 80, maxWidth: win.w, maxHeight: win.h, everyNthFrame: 1 }, s.sessionId);
   s.vpAt = 0;
@@ -765,6 +810,17 @@ function registerBrowserIpc() {
     } catch (_) { return false; }
   });
   ipcMain.handle('browser-stop', () => stopSession(false));
+  ipcMain.handle('browser-tab', async (_e, n) => {
+    const s = cur;
+    if (!s || !s.cdp || !n || typeof n !== 'object') return false;
+    try {
+      const id = String(n.id || '');
+      if (n.action === 'new') await s.cdp.send('Target.createTarget', { url: 'https://www.google.com' });
+      else if (n.action === 'switch') await switchTab(s, id);
+      else if (n.action === 'close' && s.tabs.has(id)) await s.cdp.send('Target.closeTarget', { targetId: id });
+      return true;
+    } catch (_) { return false; }
+  });
   ipcMain.handle('browser-nav', async (_e, n) => {
     if (!cur || !n || typeof n !== 'object') return false;
     try { await navigate(cur, { action: String(n.action), url: n.url }); return true; } catch (_) { return false; }
