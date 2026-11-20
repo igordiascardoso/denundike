@@ -2,3 +2,7 @@ node_modules/
 .superpowers/
 *.log
 .env
+
+# estado de ferramentas locais
+.omc/
+**/.omc/
