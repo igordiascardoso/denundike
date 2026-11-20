@@ -424,8 +424,8 @@ async function stopSession(notify) {
 const FRAME_W = 16, FRAME_H = 104, TITLE_H = 100;
 // Linux: o Chrome roda sem janela (headless) e os quadros vêm pelo DevTools (screencast); no Wayland
 // não existe como achar nem esconder a janela de outro programa, então nada depende dela.
-// Windows também: com janela de verdade o Chrome aparece na barra de tarefas e a captura falha em alguns PCs (Windows 10).
-const CAST = true;
+// Windows: Chrome de verdade, com janela (o Cloudflare e sites parecidos reprovam o Chrome sem janela e com tela emulada).
+const CAST = process.platform === 'linux';
 
 function windowFor(h) {
   h = [720, 1080, 1440].includes(Number(h)) ? Number(h) : 1080;
@@ -509,10 +509,12 @@ async function startSession(sender, url, opts, retried) {
   // DevTools (Extensions.loadUnpacked), que exige --enable-unsafe-extension-debugging. A porta só escuta em 127.0.0.1.
   args.push('--enable-unsafe-extension-debugging');
   // o som sai pelo app (volume próprio do anfitrião), não direto pelo Chrome
-  args.push('--headless=new', '--mute-audio');
+  // o som sai pelo app (volume próprio do anfitrião), não direto pelo Chrome
+  args.push('--mute-audio');
+  if (CAST) args.push('--headless=new');
   // Ubuntu e derivados podem não ter user namespaces habilitados; --no-sandbox resolve
   if (process.platform === 'linux') args.push('--no-sandbox');
-  const proc = spawn(chrome, args, { stdio: 'ignore', windowsHide: true });
+  const proc = spawn(chrome, args, { stdio: 'ignore', windowsHide: false });
   const s = { proc, sender, token, cdp: null, sessionId: null, targetId: null, windowId: null, vp: null, vpAt: 0, buttons: 0, lastDown: {}, size: '', owner: null, ownerT: 0, queue: [], moving: false };
   cur = s;
   proc.on('exit', () => { if (cur === s) { cur = null; clearInterval(s.poll); if (!sender.isDestroyed()) sender.send('browser-ended'); } });
@@ -587,10 +589,7 @@ async function startSession(sender, url, opts, retried) {
     if (CAST) {
       s.cast = true;
       // headless se identifica como HeadlessChrome e alguns sites desconfiam: apresenta como Chrome comum
-      try {
-        const v = await s.cdp.send('Browser.getVersion');
-        await s.cdp.send('Emulation.setUserAgentOverride', { userAgent: String(v.userAgent || '').replace('HeadlessChrome', 'Chrome') }, s.sessionId);
-      } catch (_) {}
+      await applyDisguise(s, s.sessionId);
       await startCast(s, win);
       s.poll = setInterval(async () => {
         if (cur !== s) return;
@@ -611,6 +610,7 @@ async function startSession(sender, url, opts, retried) {
       if (hit) sourceId = hit.id; else await sleep(150);
     }
     if (!sourceId) throw new Error('window not found');
+    s.hwnd = (String(sourceId).match(/^window:(\d+):/) || [])[1] || null;
     // achada a janela, vai direto para a página: ninguém fica olhando a aba em branco do token
     s.cdp.send('Page.navigate', { url: url || 'https://www.google.com' }, s.sessionId).catch(() => {});
 
@@ -670,6 +670,50 @@ const AUDIO_JS = `(() => {
   setInterval(() => document.querySelectorAll('video,audio').forEach((el) => { if (!el.paused) hook(el); }), 1000);
 })();`;
 
+// Sem janela o Chrome se entrega como "Headless" (agente de usuário, client hints, WebGL por software) e sites com
+// Cloudflare reprovam a verificação. Aqui ele se apresenta como um Chrome comum.
+const DISGUISE_JS = `(() => {
+  try { Object.defineProperty(Navigator.prototype, 'webdriver', { get: () => false, configurable: true }); } catch (_) {}
+  try { if (!window.chrome) window.chrome = { runtime: {}, app: { isInstalled: false } }; } catch (_) {}
+  try { Object.defineProperty(Navigator.prototype, 'languages', { get: () => ['pt-BR', 'pt', 'en-US', 'en'], configurable: true }); } catch (_) {}
+  try {
+    const fix = (proto) => { const g = proto.getParameter; proto.getParameter = function (p) { if (p === 37445) return 'Google Inc. (NVIDIA)'; if (p === 37446) return 'ANGLE (NVIDIA, NVIDIA GeForce GTX 1650 Direct3D11 vs_5_0 ps_5_0, D3D11)'; return g.call(this, p); }; };
+    if (window.WebGLRenderingContext) fix(WebGLRenderingContext.prototype);
+    if (window.WebGL2RenderingContext) fix(WebGL2RenderingContext.prototype);
+  } catch (_) {}
+})();`;
+
+async function applyDisguise(s, sessionId) {
+  try {
+    const v = await s.cdp.send('Browser.getVersion');
+    const ua = String(v.userAgent || '').replace(/HeadlessChrome/g, 'Chrome');
+    const full = (String(v.product || '').match(/(\d+\.\d+\.\d+\.\d+)/) || [])[1] || '131.0.0.0';
+    const major = full.split('.')[0];
+    const plat = process.platform === 'win32' ? 'Windows' : process.platform === 'darwin' ? 'macOS' : 'Linux';
+    await s.cdp.send('Emulation.setUserAgentOverride', {
+      userAgent: ua,
+      acceptLanguage: 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
+      userAgentMetadata: {
+        brands: [{ brand: 'Chromium', version: major }, { brand: 'Google Chrome', version: major }, { brand: 'Not_A Brand', version: '24' }],
+        fullVersionList: [{ brand: 'Chromium', version: full }, { brand: 'Google Chrome', version: full }, { brand: 'Not_A Brand', version: '24.0.0.0' }],
+        platform: plat, platformVersion: process.platform === 'win32' ? '10.0.0' : '6.5.0', architecture: 'x86', model: '', mobile: false, bitness: '64', wow64: false,
+      },
+    }, sessionId);
+    await s.cdp.send('Page.addScriptToEvaluateOnNewDocument', { source: DISGUISE_JS, runImmediately: true }, sessionId);
+  } catch (_) {}
+}
+
+/** tira o botão do Chrome da barra de tarefas sem mexer na janela (esconder a janela derrubaria a captura) */
+function hideFromTaskbar(hwnd) {
+  const cs = 'using System; using System.Runtime.InteropServices;'
+    + '[ComImport, Guid("56FDF342-FD6D-11d0-958A-006097C9A090"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)] public interface ITaskbarList { void HrInit(); void AddTab(IntPtr h); void DeleteTab(IntPtr h); void ActivateTab(IntPtr h); void SetActiveAlt(IntPtr h); }'
+    + '[ComImport, Guid("56FDF344-FD6D-11d0-958A-006097C9A090")] public class TaskbarList {}';
+  const ps = "Add-Type -TypeDefinition '" + cs + "'; $t = New-Object TaskbarList; $t.HrInit(); $t.DeleteTab([IntPtr]" + Number(hwnd) + ')';
+  try {
+    spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-WindowStyle', 'Hidden', '-EncodedCommand', Buffer.from(ps, 'utf16le').toString('base64')], { stdio: 'ignore', windowsHide: true }).on('error', () => {});
+  } catch (_) {}
+}
+
 async function setupAudio(s, sessionId) {
   try {
     await s.cdp.send('Runtime.enable', {}, sessionId);
@@ -691,16 +735,12 @@ async function switchTab(s, id) {
   if (!s.cdp || id === s.targetId || !s.tabs.has(id)) return;
   const old = s.sessionId;
   const { sessionId } = await s.cdp.send('Target.attachToTarget', { targetId: id, flatten: true });
-  s.cdp.send('Page.stopScreencast', {}, old).catch(() => {});
+  if (CAST) s.cdp.send('Page.stopScreencast', {}, old).catch(() => {});
   s.targetId = id; s.sessionId = sessionId; s.vp = null; s.vpAt = 0;
   await s.cdp.send('Page.enable', {}, sessionId);
   await setupAudio(s, sessionId);
-  try {
-    const v = await s.cdp.send('Browser.getVersion');
-    await s.cdp.send('Emulation.setUserAgentOverride', { userAgent: String(v.userAgent || '').replace('HeadlessChrome', 'Chrome') }, sessionId);
-  } catch (_) {}
   s.cdp.send('Target.activateTarget', { targetId: id }).catch(() => {});
-  await startCast(s, s.win);
+  if (CAST) { await applyDisguise(s, sessionId); await startCast(s, s.win); }
   const t = s.tabs.get(id);
   if (t && t.url && !s.sender.isDestroyed()) s.sender.send('browser-url', t.url);
   sendTabs(s);
@@ -880,6 +920,7 @@ function registerBrowserIpc() {
     if (!cur || !cur.windowId) return false;
     try {
       await cur.cdp.send('Browser.setWindowBounds', { windowId: cur.windowId, bounds: { windowState: 'normal', left: on ? -12000 : 30, top: on ? 0 : 20 } });
+      if (on && cur.hwnd && process.platform === 'win32' && !cur.taskbarHidden) { cur.taskbarHidden = true; hideFromTaskbar(cur.hwnd); }
       return true;
     } catch (_) { return false; }
   });

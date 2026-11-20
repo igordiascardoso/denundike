@@ -309,13 +309,10 @@
             over = true; res(s);
           } catch (e) { clearTimeout(t); if (!over) { over = true; rej(e); } }
         });
+        // só vídeo: o som vem da própria página (_onAudio), assim não vaza o áudio do resto do PC
         let raw;
-        try { raw = await grab(true); }
-        catch (_) {
-          if (!this.local) return;
-          try { raw = await grab(false); }
-          catch (_) { return fail('Não consegui capturar a janela do navegador.'); }
-        }
+        try { raw = await grab(false); }
+        catch (_) { if (!this.local) return; return fail('Não consegui capturar a janela do navegador.'); }
         if (!this.local) { raw.getTracks().forEach((t) => t.stop()); return; }
         L.raw = raw;
         raw.getVideoTracks()[0].onended = () => { if (this.local === L) { this._sendCall('browser_stop'); this._stopLocal(); } };
@@ -338,7 +335,12 @@
         this._restartDraw();
         const track = L.canvas.captureStream().getVideoTracks()[0];
         track.contentHint = this.o.call.hint();
-        L.out = new MediaStream([track, ...raw.getAudioTracks()]);
+        L.actx = new AudioContext({ sampleRate: 48000 });
+        L.adest = L.actx.createMediaStreamDestination();
+        L.anext = 0;
+        L.hgain = L.actx.createGain();
+        L.hgain.connect(L.actx.destination);
+        L.out = new MediaStream([track, ...L.adest.stream.getAudioTracks()]);
         this.o.call.setBrowserStream(L.out);
         await window.bridge.browser.nav({ action: 'go', url: url || 'https://www.google.com' });
         await window.bridge.browser.park(true);
