@@ -73,8 +73,9 @@
 
       this.camStream = new MediaStream();
       try {
+        const micId = localStorage.getItem('dk_mic_device');
         const s = await navigator.mediaDevices.getUserMedia({
-          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, ...(micId ? { deviceId: { ideal: micId } } : {}) },
         });
         this.mic = s.getAudioTracks()[0];
         this.mic.enabled = !this.muted;

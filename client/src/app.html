@@ -664,6 +664,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
     <button role="tab" aria-selected="false" data-sp="rank">Ranking</button>
     <button role="tab" aria-selected="false" data-sp="sec">Segurança</button>
     <button role="tab" aria-selected="false" data-sp="upd">Atualização</button>
+    <button role="tab" aria-selected="false" data-sp="audio">Áudio</button>
     <button class="out" data-act="logout">Sair da conta</button>
   </nav>
   <div style="position:relative;overflow:auto">
@@ -711,6 +712,16 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
       </div>
       <button class="btn pri" id="updCheckBtn" type="button">Verificar atualizações</button>
       <button class="btn" id="updInstallBtn" type="button" hidden>Reiniciar e instalar agora</button>
+    </div>
+    <div class="spane" id="sp-audio" hidden>
+      <h2>Áudio</h2>
+      <label class="l">Microfone
+        <select class="in" id="audioMicSel"><option value="">Padrão do sistema</option></select>
+      </label>
+      <label class="l" style="margin-top:12px">Saída de áudio
+        <select class="in" id="audioOutSel"><option value="">Padrão do sistema</option></select>
+      </label>
+      <p style="color:var(--dim);font-size:12px;margin-top:12px">As alterações valem na próxima chamada. A saída muda imediatamente para quem já está em chamada.</p>
     </div>
 
   </div>
@@ -1562,7 +1573,12 @@ function buildTile(t) {
 }
 function updateTile(el, t) {
   const v = el.querySelector('video');
-  if (v.srcObject !== (t.stream || null)) { v.srcObject = t.stream || null; const pr = v.play(); if (pr && pr.catch) pr.catch(() => {}); }
+  if (v.srcObject !== (t.stream || null)) {
+    v.srcObject = t.stream || null;
+    const outId = localStorage.getItem('dk_out_device');
+    if (outId && v.setSinkId) v.setSinkId(outId).catch(() => {});
+    const pr = v.play(); if (pr && pr.catch) pr.catch(() => {});
+  }
   applyTileVolume(v, t);
   el.classList.toggle('novideo', !t.hasVideo);
   el.classList.toggle('sp', !!t.speaking);
@@ -1696,6 +1712,37 @@ $$('input[type=range]').forEach(r => { rng(r); r.oninput = () => rng(r); });
 
 /* ── auto-update ── */
 /* O processo principal decide quando instalar (contagem, chamada, "Depois"); aqui só se mostra o estado. */
+/* ── painel Áudio nas configurações ── */
+(async () => {
+  const micSel = $('#audioMicSel'), outSel = $('#audioOutSel');
+  if (!micSel || !outSel) return;
+  async function loadDevices() {
+    try {
+      // pede permissão para ver os labels
+      await navigator.mediaDevices.getUserMedia({ audio: true }).then(s => s.getTracks().forEach(t => t.stop())).catch(() => {});
+      const devs = await navigator.mediaDevices.enumerateDevices();
+      [micSel, outSel].forEach(s => { while (s.options.length > 1) s.remove(1); });
+      devs.forEach(d => {
+        if (d.kind === 'audioinput') { const o = new Option(d.label || 'Microfone ' + d.deviceId.slice(0,6), d.deviceId); micSel.appendChild(o); }
+        if (d.kind === 'audiooutput') { const o = new Option(d.label || 'Saída ' + d.deviceId.slice(0,6), d.deviceId); outSel.appendChild(o); }
+      });
+      micSel.value = localStorage.getItem('dk_mic_device') || '';
+      outSel.value = localStorage.getItem('dk_out_device') || '';
+    } catch (_) {}
+  }
+  micSel.onchange = () => { localStorage.setItem('dk_mic_device', micSel.value); };
+  outSel.onchange = () => {
+    const id = outSel.value;
+    localStorage.setItem('dk_out_device', id);
+    // aplica imediatamente em todos os vídeos de chamada ativos
+    document.querySelectorAll('.tile video, #sv').forEach(v => { if (v.setSinkId) v.setSinkId(id).catch(() => {}); });
+  };
+  // popula quando abre a aba
+  document.querySelector('[data-sp="audio"]').addEventListener('click', loadDevices, { once: false });
+  // e ao abrir as configurações
+  document.querySelector('[data-act="settings"]')?.addEventListener('click', loadDevices, { once: false });
+})();
+
 /* ── painel Atualização nas configurações ── */
 (async () => {
   if (!window.bridge?.appVersion) return;
