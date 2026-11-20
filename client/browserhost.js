@@ -51,28 +51,95 @@ function findBrowser() {
 }
 
 /* ── download helpers ── */
-function downloadFile(url, dest, onProgress) {
+
+/** resolve redirects e retorna URL final + tamanho + suporte a Range */
+function resolveUrl(url, hops) {
+  if ((hops || 0) > 10) return Promise.reject(new Error('too many redirects'));
   return new Promise((res, rej) => {
-    const file = fs.createWriteStream(dest);
-    let total = 0, got = 0;
-    function request(u, hops) {
-      if (hops > 10) { file.close(); return rej(new Error('too many redirects')); }
-      const mod = u.startsWith('https') ? https : http;
-      mod.get(u, { headers: { 'User-Agent': 'Denundike/1.0' } }, (resp) => {
-        if (resp.statusCode >= 300 && resp.statusCode < 400 && resp.headers.location) {
-          resp.resume(); return request(resp.headers.location, hops + 1);
-        }
-        if (resp.statusCode !== 200) { resp.resume(); file.close(); return rej(new Error('HTTP ' + resp.statusCode)); }
-        total = parseInt(resp.headers['content-length'] || '0', 10);
-        resp.on('data', (chunk) => { got += chunk.length; if (total && onProgress) onProgress(Math.round(got / total * 100)); });
-        resp.pipe(file);
-        file.on('finish', () => file.close(() => res()));
-        file.on('error', (e) => { file.close(); rej(e); });
-        resp.on('error', (e) => { file.close(); rej(e); });
-      }).on('error', (e) => { file.close(); rej(e); });
-    }
-    request(url, 0);
+    const mod = url.startsWith('https') ? https : http;
+    const req = mod.request(url, { method: 'HEAD', headers: { 'User-Agent': 'Denundike/1.0' } }, (resp) => {
+      resp.resume();
+      if (resp.statusCode >= 300 && resp.statusCode < 400 && resp.headers.location) {
+        return resolveUrl(resp.headers.location, (hops || 0) + 1).then(res).catch(rej);
+      }
+      res({
+        url,
+        length: parseInt(resp.headers['content-length'] || '0', 10),
+        ranges: resp.headers['accept-ranges'] === 'bytes',
+      });
+    });
+    req.on('error', rej);
+    req.end();
   });
+}
+
+/** baixa um intervalo [start, end] e grava em destFile */
+
+/** download paralelo com N conexões; cai em conexão única se o servidor não suportar Range */
+async function downloadFile(url, dest, onProgress, connections) {
+  const N = connections || 16;
+  let info;
+  try { info = await resolveUrl(url); } catch (_) { info = { url, length: 0, ranges: false }; }
+  const { url: finalUrl, length, ranges } = info;
+
+  if (!ranges || !length || length < N * 64 * 1024) {
+    // conexão única (servidor não suporta Range ou arquivo pequeno)
+    return new Promise((res, rej) => {
+      const file = fs.createWriteStream(dest);
+      let got = 0;
+      function request(u, hops) {
+        if (hops > 10) { file.close(); return rej(new Error('too many redirects')); }
+        const mod = u.startsWith('https') ? https : http;
+        mod.get(u, { headers: { 'User-Agent': 'Denundike/1.0' } }, (resp) => {
+          if (resp.statusCode >= 300 && resp.statusCode < 400 && resp.headers.location) {
+            resp.resume(); return request(resp.headers.location, hops + 1);
+          }
+          if (resp.statusCode !== 200) { resp.resume(); file.close(); return rej(new Error('HTTP ' + resp.statusCode)); }
+          const total = parseInt(resp.headers['content-length'] || '0', 10);
+          resp.on('data', (chunk) => { got += chunk.length; if (total && onProgress) onProgress(Math.round(got / total * 100)); });
+          resp.pipe(file);
+          file.on('finish', () => file.close(() => res()));
+          file.on('error', (e) => { file.close(); rej(e); });
+          resp.on('error', (e) => { file.close(); rej(e); });
+        }).on('error', (e) => { file.close(); rej(e); });
+      }
+      request(url, 0);
+    });
+  }
+
+  // download paralelo em N chunks
+  const chunkSize = Math.ceil(length / N);
+  const parts = Array.from({ length: N }, (_, i) => dest + '.part' + i);
+  let got = 0;
+  try {
+    await Promise.all(parts.map((partFile, i) => {
+      const start = i * chunkSize, end = Math.min(start + chunkSize - 1, length - 1);
+      return new Promise((res, rej) => {
+        const file = fs.createWriteStream(partFile);
+        const mod = finalUrl.startsWith('https') ? https : http;
+        mod.get(finalUrl, { headers: { 'User-Agent': 'Denundike/1.0', Range: 'bytes=' + start + '-' + end } }, (resp) => {
+          if (resp.statusCode !== 206 && resp.statusCode !== 200) { resp.resume(); file.close(); return rej(new Error('HTTP ' + resp.statusCode)); }
+          resp.on('data', (chunk) => { got += chunk.length; if (onProgress) onProgress(Math.round(got / length * 100)); });
+          resp.pipe(file);
+          file.on('finish', () => file.close(() => res()));
+          file.on('error', (e) => { file.close(); rej(e); });
+          resp.on('error', (e) => { file.close(); rej(e); });
+        }).on('error', (e) => { file.close(); rej(e); });
+      });
+    }));
+    // monta arquivo final a partir das partes
+    const out = fs.createWriteStream(dest);
+    for (const part of parts) {
+      await new Promise((res, rej) => {
+        const inp = fs.createReadStream(part);
+        inp.on('error', rej); inp.on('end', res);
+        inp.pipe(out, { end: false });
+      });
+    }
+    await new Promise((res) => out.end(res));
+  } finally {
+    for (const part of parts) try { fs.unlinkSync(part); } catch (_) {}
+  }
 }
 
 async function extractDeb(debPath, destDir) {
