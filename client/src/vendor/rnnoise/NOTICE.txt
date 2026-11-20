@@ -1,0 +1,1 @@
+Redução de ruído: RNNoise (Xiph.Org, BSD-3) via @sapphi-red/web-noise-suppressor 0.4.1 (MIT).

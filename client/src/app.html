@@ -731,6 +731,20 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
       <label class="l" style="margin-top:8px"><span style="display:flex;justify-content:space-between">Volume do microfone <b id="audioMicVolVal">100%</b></span>
         <input type="range" id="audioMicVol" min="0" max="200" value="100" aria-label="Volume do microfone">
       </label>
+      <label class="l" style="margin-top:16px">Redução de ruído
+        <select class="in" id="audioNsMode">
+          <option value="ai">Inteligente (IA) — recomendado</option>
+          <option value="basic">Padrão do navegador</option>
+          <option value="off">Desligada</option>
+        </select>
+      </label>
+      <label class="l" id="audioNsAmtRow" style="margin-top:8px"><span style="display:flex;justify-content:space-between">Intensidade da redução <b id="audioNsAmtVal">70%</b></span>
+        <input type="range" id="audioNsAmt" min="0" max="100" value="70" aria-label="Intensidade da redução de ruído">
+      </label>
+      <label class="l" style="margin-top:8px"><span style="display:flex;justify-content:space-between">Corte de ruído de fundo <b id="audioGateVal">Desligado</b></span>
+        <input type="range" id="audioGate" min="0" max="100" value="0" aria-label="Corte de ruído de fundo">
+      </label>
+      <small style="display:block;color:var(--dim);margin-top:6px">Intensidade: quanto mais alto, mais ruído (teclado, ventilador) é removido; muito alto pode deixar a voz robótica. Corte: silencia o microfone quando você não está falando; aumente até o ruído sumir sem cortar o começo das palavras.</small>
       <label class="l" style="margin-top:20px">Saída de áudio
         <select class="in" id="audioOutSel"><option value="">Padrão do sistema</option></select>
       </label>
@@ -754,6 +768,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 </div></div>
 
 <script src="js/sfx.js"></script>
+<script src="js/mic.js"></script>
 <script src="js/call.js"></script>
 <script src="js/browser.js"></script>
 <script>
@@ -1761,7 +1776,24 @@ $$('input[type=range]').forEach(r => { rng(r); r.oninput = () => rng(r); });
     });
   };
   bindVol(outVol, '#audioOutVolVal', 'dk_out_vol', () => { if (window.applyAllVolumes) window.applyAllVolumes(); });
-  bindVol(micVol, '#audioMicVolVal', 'dk_mic_vol', (v) => { if (call._micGain) call._micGain.gain.value = v; });
+  bindVol(micVol, '#audioMicVolVal', 'dk_mic_vol', (v) => { if (call._chain) call._chain.setVolume(v); });
+  // redução de ruído: modo, intensidade e corte; valem na hora, inclusive numa chamada em andamento
+  const nsMode = $('#audioNsMode'), nsAmt = $('#audioNsAmt'), nsGate = $('#audioGate');
+  const nsApply = () => { if (call._chain) call._chain.apply(); };
+  const nsShow = () => {
+    $('#audioNsAmtRow').style.display = nsMode.value === 'ai' ? '' : 'none';
+    $('#audioNsAmtVal').textContent = nsAmt.value + '%';
+    $('#audioGateVal').textContent = nsGate.value === '0' ? 'Desligado' : nsGate.value + '%';
+  };
+  if (nsMode && nsAmt && nsGate) {
+    nsMode.value = window.dkNs.mode();
+    nsAmt.value = Math.round(window.dkNs.amount() * 100);
+    nsGate.value = Math.round(window.dkNs.gate() * 100);
+    nsShow(); if (typeof rng === 'function') { rng(nsAmt); rng(nsGate); }
+    nsMode.addEventListener('change', () => { try { localStorage.setItem('dk_ns_mode', nsMode.value); } catch (_) {} nsShow(); nsApply(); });
+    nsAmt.addEventListener('input', () => { try { localStorage.setItem('dk_ns_amt', String(nsAmt.value / 100)); } catch (_) {} nsShow(); nsApply(); });
+    nsGate.addEventListener('input', () => { try { localStorage.setItem('dk_ns_gate', String(nsGate.value / 100)); } catch (_) {} nsShow(); nsApply(); });
+  }
   micSel.onchange = () => { localStorage.setItem('dk_mic_device', micSel.value); };
   outSel.onchange = () => {
     const id = outSel.value;

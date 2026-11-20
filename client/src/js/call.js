@@ -81,17 +81,14 @@
         });
         this._micRaw = s.getAudioTracks()[0];
         this.mic = this._micRaw;
-        // o volume do microfone (Configurações > Áudio) passa por um ganho antes de ir para a chamada
+        // redução de ruído, corte e volume do microfone (Configurações > Áudio) ficam numa cadeia antes da chamada
         try {
-          if (this._ctx) {
-            const src = this._ctx.createMediaStreamSource(new MediaStream([this._micRaw]));
-            this._micGain = this._ctx.createGain();
-            this._micGain.gain.value = window.dkMicVol ? window.dkMicVol() : 1;
-            const dst = this._ctx.createMediaStreamDestination();
-            src.connect(this._micGain); this._micGain.connect(dst);
-            this.mic = dst.stream.getAudioTracks()[0];
+          if (window.MicChain) {
+            this._chain = new window.MicChain(this._micRaw, window.dkMicVol ? window.dkMicVol() : 1);
+            await this._chain.init();
+            this.mic = this._chain.track;
           }
-        } catch (_) { this.mic = this._micRaw; }
+        } catch (_) { try { this._chain && this._chain.destroy(); } catch (__) {} this._chain = null; this.mic = this._micRaw; }
         this.mic.enabled = !this.muted;
         this.camStream.addTrack(this.mic);
         this._watchSelf();
@@ -125,9 +122,10 @@
     _teardown() {
       if (this.channelId) this._sfx('leave');
       for (const id of [...this.peers.keys()]) this._removePeer(id);
+      try { this._chain && this._chain.destroy(); } catch (_) {} this._chain = null;
       [this.mic, this._micRaw, this.camTrack].forEach(t => { try { t && t.stop(); } catch (_) {} });
       if (this.screenStream) this.screenStream.getTracks().forEach(t => { try { t.stop(); } catch (_) {} });
-      this.mic = null; this._micRaw = null; this._micGain = null; this.camTrack = null; this.camStream = null; this.screenStream = null; this.browserStream = null;
+      this.mic = null; this._micRaw = null; this.camTrack = null; this.camStream = null; this.screenStream = null; this.browserStream = null;
       this._selfAnalyser = null;
       clearInterval(this._speakTimer); this._speakTimer = null;
       clearInterval(this._statsT); this._statsT = null; this.sendStats = null; this._prev = null;
