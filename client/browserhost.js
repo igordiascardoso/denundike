@@ -508,7 +508,8 @@ async function startSession(sender, url, opts, retried) {
   // O Chrome de marca (137+) ignora --load-extension. O que funciona é carregar a extensão pelo protocolo
   // DevTools (Extensions.loadUnpacked), que exige --enable-unsafe-extension-debugging. A porta só escuta em 127.0.0.1.
   args.push('--enable-unsafe-extension-debugging');
-  args.push('--headless=new');
+  // o som sai pelo app (volume próprio do anfitrião), não direto pelo Chrome
+  args.push('--headless=new', '--mute-audio');
   // Ubuntu e derivados podem não ter user namespaces habilitados; --no-sandbox resolve
   if (process.platform === 'linux') args.push('--no-sandbox');
   const proc = spawn(chrome, args, { stdio: 'ignore', windowsHide: true });

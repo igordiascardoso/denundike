@@ -69,7 +69,9 @@
         if (L.anext < now + 0.05) L.anext = now + 0.12;      // começou ou ficou para trás: reserva um respiro
         else if (L.anext > now + 0.8) return;                 // acumulou demais: descarta para não atrasar o som
         const src = L.actx.createBufferSource();
-        src.buffer = buf; src.connect(L.adest);
+        src.buffer = buf; src.connect(L.adest); src.connect(L.hgain);
+        const g = window.getVol ? window.getVol('browser') : { v: 1, m: false };
+        L.hgain.gain.value = (this.o.call.deafened || g.m) ? 0 : g.v;
         src.start(L.anext);
         L.anext += buf.duration;
       } catch (_) {}
@@ -284,6 +286,8 @@
           L.actx = new AudioContext({ sampleRate: 48000 });
           L.adest = L.actx.createMediaStreamDestination();
           L.anext = 0;
+          L.hgain = L.actx.createGain();   // o anfitrião ouve por aqui, com o volume do próprio app
+          L.hgain.connect(L.actx.destination);
           L.out = new MediaStream([ctrack, ...L.adest.stream.getAudioTracks()]);
           this.o.call.setBrowserStream(L.out);
           await window.bridge.browser.nav({ action: 'go', url: url || 'https://www.google.com' });
