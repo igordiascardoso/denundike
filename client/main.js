@@ -9,6 +9,11 @@ app.setName('Denundike');
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 // Sem isso o Windows agrupa a janela/ícone da barra de tarefas sob o Electron genérico.
 if (process.platform === 'win32') app.setAppUserModelId('com.denundike.app');
+// No Linux (Wayland/Ubuntu moderno) o compartilhamento de tela precisa passar pelo portal PipeWire.
+if (process.platform === 'linux') {
+  app.commandLine.appendSwitch('enable-features', 'WebRTCPipeWireCapturer');
+  app.commandLine.appendSwitch('ozone-platform-hint', 'auto');
+}
 
 const APP_ICON = path.join(__dirname, 'assets', 'icon.png');
 const TEST = process.env.DENUNDIKE_TEST === '1';

@@ -421,6 +421,8 @@ async function startSession(sender, url, opts, retried) {
   args.push('--enable-unsafe-extension-debugging');
   if (process.platform === 'linux') {
     args.push('--enable-audio-output-capture');
+    // Ubuntu e derivados podem não ter user namespaces habilitados; --no-sandbox resolve
+    args.push('--no-sandbox');
   }
   const proc = spawn(chrome, args, { stdio: 'ignore', windowsHide: false });
   const s = { proc, sender, token, cdp: null, sessionId: null, targetId: null, windowId: null, vp: null, vpAt: 0, buttons: 0, lastDown: {}, size: '', owner: null, ownerT: 0, queue: [], moving: false };
