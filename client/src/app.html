@@ -663,6 +663,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
     <button role="tab" aria-selected="false" data-sp="inv">Meus convites</button>
     <button role="tab" aria-selected="false" data-sp="rank">Ranking</button>
     <button role="tab" aria-selected="false" data-sp="sec">Segurança</button>
+    <button role="tab" aria-selected="false" data-sp="upd">Atualização</button>
     <button class="out" data-act="logout">Sair da conta</button>
   </nav>
   <div style="position:relative;overflow:auto">
@@ -698,6 +699,18 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
       <p style="color:var(--muted)">O código de recuperação é a única forma de redefinir a senha se você esquecer. Gerar um novo invalida o anterior.</p>
       <label class="l">Senha atual<input class="in" id="secPw" type="password" autocomplete="current-password" placeholder="Digite sua senha"></label>
       <button class="btn pri" id="secNew" type="button">Gerar novo código de recuperação</button>
+    </div>
+    <div class="spane" id="sp-upd" hidden>
+      <h2>Atualização</h2>
+      <div class="prof" style="margin-bottom:16px">
+        <span class="av xl c1" style="font-size:18px;line-height:1">↑</span>
+        <div style="flex:1">
+          <b class="disp" style="font-size:16px" id="updCurVer">—</b>
+          <small style="display:block;color:var(--muted)" id="updStatus">Verificando…</small>
+        </div>
+      </div>
+      <button class="btn pri" id="updCheckBtn" type="button">Verificar atualizações</button>
+      <button class="btn" id="updInstallBtn" type="button" hidden>Reiniciar e instalar agora</button>
     </div>
 
   </div>
@@ -1683,6 +1696,25 @@ $$('input[type=range]').forEach(r => { rng(r); r.oninput = () => rng(r); });
 
 /* ── auto-update ── */
 /* O processo principal decide quando instalar (contagem, chamada, "Depois"); aqui só se mostra o estado. */
+/* ── painel Atualização nas configurações ── */
+(async () => {
+  if (!window.bridge?.appVersion) return;
+  const ver = await window.bridge.appVersion();
+  const verEl = $('#updCurVer'), statusEl = $('#updStatus'), checkBtn = $('#updCheckBtn'), installBtn = $('#updInstallBtn');
+  if (verEl) verEl.textContent = 'Versão ' + ver;
+  function setUpdStatus(phase, newVer) {
+    if (!statusEl) return;
+    const labels = { idle: 'Atualizado', checking: 'Verificando…', uptodate: 'Você está na versão mais recente.', downloading: 'Baixando atualização…', ready: 'Pronto para instalar a versão ' + (newVer || '') + '.' };
+    statusEl.textContent = labels[phase] || '';
+    if (checkBtn) checkBtn.disabled = phase === 'checking' || phase === 'downloading';
+    if (installBtn) installBtn.hidden = phase !== 'ready';
+  }
+  setUpdStatus('idle');
+  if (window.bridge.onUpdateStatus) window.bridge.onUpdateStatus((s) => setUpdStatus(s.phase, s.version));
+  if (checkBtn) checkBtn.onclick = () => { setUpdStatus('checking'); window.bridge.checkUpdate(); };
+  if (installBtn) installBtn.onclick = () => window.bridge.installUpdate();
+})();
+
 if (window.bridge?.onUpdateStatus) {
   window.bridge.onUpdateStatus((s) => {
     const b = $('#updateBanner'), msg = $('#updateMsg'), now = $('#installUpdateBtn'), later = $('#updateLaterBtn');

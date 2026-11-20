@@ -543,6 +543,9 @@ ipcMain.handle('open-external', (_e, url) => {
 });
 
 // "Reiniciar agora" do banner (e do menu da bandeja): instala já, mesmo em chamada, porque o usuário pediu.
+ipcMain.handle('app-version', () => app.getVersion());
+ipcMain.on('update-check-manual', () => checkUpdatesManual());
+
 ipcMain.on('install-update', (e) => {
   if (!updateReady || BrowserWindow.fromWebContents(e.sender) !== mainWin) return;
   installUpdate();
