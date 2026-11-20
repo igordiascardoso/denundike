@@ -529,6 +529,7 @@ async function startSession(sender, url, opts, retried) {
     // própria aba e a nova é fechada. As páginas que o AdGuard abre ao instalar são só fechadas.
     s.cdp.send('Target.setDiscoverTargets', { discover: true }).catch(() => {});
     s.tabs = new Map();
+    s.frames = new Set();
     s.onTarget = (m) => {
       if (m.method === 'Target.targetDestroyed') {
         const id = m.params && m.params.targetId;
@@ -572,10 +573,22 @@ async function startSession(sender, url, opts, retried) {
     s.sessionId = (await s.cdp.send('Target.attachToTarget', { targetId: target.targetId, flatten: true })).sessionId;
     await s.cdp.send('Page.enable', {}, s.sessionId);
     await setupAudio(s, s.sessionId);
+    await watchFrames(s, s.sessionId);
     s.cdp.onEvent = (m) => {
       if (s.onTarget && !m.sessionId) s.onTarget(m);
-      if (m.sessionId !== s.sessionId || sender.isDestroyed()) return;
-      if (m.method === 'Runtime.bindingCalled') { if (m.params && m.params.name === '__dndkAudio') sender.send('browser-audio', m.params.payload); return; }
+      if (sender.isDestroyed()) return;
+      if (m.method === 'Target.attachedToTarget' && m.params && m.params.sessionId && m.params.targetInfo && m.params.targetInfo.type === 'iframe') {
+        const child = m.params.sessionId;
+        s.frames.add(child);
+        setupAudio(s, child).then(() => watchFrames(s, child));
+        return;
+      }
+      if (m.method === 'Runtime.bindingCalled') {
+        if ((m.sessionId === s.sessionId || s.frames.has(m.sessionId)) && m.params && m.params.name === '__dndkAudio') sender.send('browser-audio', m.params.payload);
+        return;
+      }
+      if (m.sessionId !== s.sessionId) return;
+
       if (m.method === 'Page.screencastFrame') {
         sender.send('browser-frame', m.params.data);
         s.cdp.send('Page.screencastFrameAck', { sessionId: m.params.sessionId }, s.sessionId).catch(() => {});
@@ -714,6 +727,11 @@ function hideFromTaskbar(hwnd) {
   } catch (_) {}
 }
 
+// Players de vídeo ficam em iframes de outros sites (processos separados): o app entra neles também para captar o som.
+async function watchFrames(s, sessionId) {
+  try { await s.cdp.send('Target.setAutoAttach', { autoAttach: true, waitForDebuggerOnStart: false, flatten: true }, sessionId); } catch (_) {}
+}
+
 async function setupAudio(s, sessionId) {
   try {
     await s.cdp.send('Runtime.enable', {}, sessionId);
@@ -738,7 +756,9 @@ async function switchTab(s, id) {
   if (CAST) s.cdp.send('Page.stopScreencast', {}, old).catch(() => {});
   s.targetId = id; s.sessionId = sessionId; s.vp = null; s.vpAt = 0;
   await s.cdp.send('Page.enable', {}, sessionId);
+  s.frames = new Set();
   await setupAudio(s, sessionId);
+  await watchFrames(s, sessionId);
   s.cdp.send('Target.activateTarget', { targetId: id }).catch(() => {});
   if (CAST) { await applyDisguise(s, sessionId); await startCast(s, s.win); }
   const t = s.tabs.get(id);
