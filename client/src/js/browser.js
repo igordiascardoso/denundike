@@ -40,6 +40,7 @@
         window.bridge.browser.onEnded(() => { if (this.local) { this._sendCall('browser_stop'); this._stopLocal(); this.o.toast('O navegador do anfitrião foi fechado — sessão encerrada.'); } });
         window.bridge.browser.onSize(() => this._recalibrateSoon());
         window.bridge.browser.onFrame((d) => this._onFrame(d));
+        window.bridge.browser.onAudio((d) => this._onAudio(d));
         window.bridge.browser.onTabs((t) => this._renderTabs(t));
         window.bridge.browser.onMotion((m) => {
           const t = this.local && this.local.out && this.local.out.getVideoTracks()[0];
@@ -51,6 +52,27 @@
         });
         window.bridge.browser.onPrep((p) => this._onPrep(p));
       }
+    }
+
+    _onAudio(b64) {
+      const L = this.local;
+      if (!L || !L.actx) return;
+      try {
+        const bin = atob(b64), n = bin.length;
+        const u = new Uint8Array(n);
+        for (let i = 0; i < n; i++) u[i] = bin.charCodeAt(i);
+        const pcm = new Int16Array(u.buffer), frames = pcm.length >> 1;
+        const buf = L.actx.createBuffer(2, frames, 48000);
+        const l = buf.getChannelData(0), r = buf.getChannelData(1);
+        for (let i = 0; i < frames; i++) { l[i] = pcm[2 * i] / 32768; r[i] = pcm[2 * i + 1] / 32768; }
+        const now = L.actx.currentTime;
+        if (L.anext < now + 0.05) L.anext = now + 0.12;      // começou ou ficou para trás: reserva um respiro
+        else if (L.anext > now + 0.8) return;                 // acumulou demais: descarta para não atrasar o som
+        const src = L.actx.createBufferSource();
+        src.buffer = buf; src.connect(L.adest);
+        src.start(L.anext);
+        L.anext += buf.duration;
+      } catch (_) {}
     }
 
     /** barra de abas do anfitrião (as abas são do Chrome dele; os outros só veem a transmissão) */
@@ -258,7 +280,11 @@
           this._restartDraw();
           const ctrack = L.canvas.captureStream().getVideoTracks()[0];
           ctrack.contentHint = this.o.call.hint();
-          L.out = new MediaStream([ctrack]);
+          // som da página: chega em pedaços do processo principal e vira uma trilha de áudio da transmissão
+          L.actx = new AudioContext({ sampleRate: 48000 });
+          L.adest = L.actx.createMediaStreamDestination();
+          L.anext = 0;
+          L.out = new MediaStream([ctrack, ...L.adest.stream.getAudioTracks()]);
           this.o.call.setBrowserStream(L.out);
           await window.bridge.browser.nav({ action: 'go', url: url || 'https://www.google.com' });
           L.ready = true;
@@ -453,6 +479,7 @@
       if (!L) return;
       L.running = false;
       this._pendingNav = null;
+      try { L.actx && L.actx.close(); } catch (_) {}
       clearInterval(L.timer);
       clearTimeout(this._rc);
       try { this.o.call.setBrowserStream(null); } catch (_) {}

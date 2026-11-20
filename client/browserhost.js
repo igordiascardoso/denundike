@@ -568,9 +568,11 @@ async function startSession(sender, url, opts, retried) {
     s.tabs.set(target.targetId, { id: target.targetId, title: '', url: '' });
     s.sessionId = (await s.cdp.send('Target.attachToTarget', { targetId: target.targetId, flatten: true })).sessionId;
     await s.cdp.send('Page.enable', {}, s.sessionId);
+    await setupAudio(s, s.sessionId);
     s.cdp.onEvent = (m) => {
       if (s.onTarget && !m.sessionId) s.onTarget(m);
       if (m.sessionId !== s.sessionId || sender.isDestroyed()) return;
+      if (m.method === 'Runtime.bindingCalled') { if (m.params && m.params.name === '__dndkAudio') sender.send('browser-audio', m.params.payload); return; }
       if (m.method === 'Page.screencastFrame') {
         sender.send('browser-frame', m.params.data);
         s.cdp.send('Page.screencastFrameAck', { sessionId: m.params.sessionId }, s.sessionId).catch(() => {});
@@ -633,6 +635,48 @@ async function startSession(sender, url, opts, retried) {
   }
 }
 
+// Som: o Chrome sem janela não tem como ser gravado pelo sistema, então a própria página manda o áudio dos
+// <video>/<audio> para o app. Só o som da página do navegador do app vai para a chamada, nunca o do resto do PC.
+const AUDIO_JS = `(() => {
+  if (window.__dndkA) return; window.__dndkA = 1;
+  let ac, master;
+  const init = () => {
+    if (ac) return;
+    ac = new AudioContext({ sampleRate: 48000 });
+    master = ac.createGain(); master.connect(ac.destination);
+    const proc = ac.createScriptProcessor(4096, 2, 2);
+    master.connect(proc); proc.connect(ac.destination);
+    proc.onaudioprocess = (e) => {
+      const a = e.inputBuffer.getChannelData(0), b = e.inputBuffer.getChannelData(1), n = a.length, buf = new Int16Array(n * 2);
+      let any = false;
+      for (let i = 0; i < n; i++) {
+        const l = a[i], r = b[i];
+        if (l > 0.0005 || l < -0.0005 || r > 0.0005 || r < -0.0005) any = true;
+        buf[2 * i] = Math.max(-1, Math.min(1, l)) * 32767; buf[2 * i + 1] = Math.max(-1, Math.min(1, r)) * 32767;
+      }
+      if (!any) return;
+      const u = new Uint8Array(buf.buffer); let str = '';
+      for (let i = 0; i < u.length; i += 8192) str += String.fromCharCode.apply(null, u.subarray(i, i + 8192));
+      try { window.__dndkAudio(btoa(str)); } catch (_) {}
+    };
+  };
+  const hook = (el) => {
+    if (el.__dndk) return; el.__dndk = 1;
+    try { init(); ac.resume(); ac.createMediaElementSource(el).connect(master); } catch (_) {}
+  };
+  const play = HTMLMediaElement.prototype.play;
+  HTMLMediaElement.prototype.play = function () { hook(this); return play.apply(this, arguments); };
+  setInterval(() => document.querySelectorAll('video,audio').forEach((el) => { if (!el.paused) hook(el); }), 1000);
+})();`;
+
+async function setupAudio(s, sessionId) {
+  try {
+    await s.cdp.send('Runtime.enable', {}, sessionId);
+    await s.cdp.send('Runtime.addBinding', { name: '__dndkAudio' }, sessionId);
+    await s.cdp.send('Page.addScriptToEvaluateOnNewDocument', { source: AUDIO_JS, runImmediately: true }, sessionId);
+  } catch (_) {}
+}
+
 function sendTabs(s) {
   if (cur !== s || s.sender.isDestroyed()) return;
   clearTimeout(s.tabsT);
@@ -649,6 +693,7 @@ async function switchTab(s, id) {
   s.cdp.send('Page.stopScreencast', {}, old).catch(() => {});
   s.targetId = id; s.sessionId = sessionId; s.vp = null; s.vpAt = 0;
   await s.cdp.send('Page.enable', {}, sessionId);
+  await setupAudio(s, sessionId);
   try {
     const v = await s.cdp.send('Browser.getVersion');
     await s.cdp.send('Emulation.setUserAgentOverride', { userAgent: String(v.userAgent || '').replace('HeadlessChrome', 'Chrome') }, sessionId);

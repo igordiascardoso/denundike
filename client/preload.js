@@ -60,6 +60,7 @@ contextBridge.exposeInMainWorld('bridge', {
     stop: () => ipcRenderer.invoke('browser-stop'),
     nav: (n) => ipcRenderer.invoke('browser-nav', n),
     tab: (n) => ipcRenderer.invoke('browser-tab', n),
+    onAudio: (cb) => ipcRenderer.on('browser-audio', (_e, d) => cb(d)),
     onTabs: (cb) => ipcRenderer.on('browser-tabs', (_e, t) => cb(t)),
     input: (from, ev) => ipcRenderer.invoke('browser-input', { from, ev }),
     overlay: (on) => ipcRenderer.invoke('browser-overlay', on),
