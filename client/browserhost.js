@@ -12,32 +12,36 @@ const os = require('os');
    protocolo DevTools. Convidados nunca falam com o Chrome: só eventos de
    mouse/teclado/navegação já filtrados passam por aqui. */
 
-function chromePaths() {
-  const c = [];
-  if (process.platform === 'win32') {
-    for (const base of [process.env.ProgramFiles, process.env['ProgramFiles(x86)'], process.env.LOCALAPPDATA]) {
-      if (base) c.push(path.join(base, 'Google', 'Chrome', 'Application', 'chrome.exe'));
-    }
-  } else if (process.platform === 'darwin') {
-    c.push('/Applications/Google Chrome.app/Contents/MacOS/Google Chrome');
-  } else {
-    c.push('/usr/bin/google-chrome-stable', '/usr/bin/google-chrome', '/opt/google/chrome/chrome',
-      '/usr/bin/chromium', '/usr/bin/chromium-browser', '/snap/bin/chromium');
-  }
-  return c;
-}
-
+// O app sempre usa o Chrome que ele mesmo baixou — nunca o Chrome do sistema da pessoa.
+// Linux: extraído do .deb em userData/chrome
+// Windows: instalado pelo setup e marcado com userData/chrome-managed
 function linuxLocalChromePath() {
   return path.join(app.getPath('userData'), 'chrome', 'opt', 'google', 'chrome', 'google-chrome');
+}
+
+function winManagedChromePath() {
+  return path.join(process.env.LOCALAPPDATA || '', 'Google', 'Chrome', 'Application', 'chrome.exe');
+}
+
+function winManagedMarker() {
+  return path.join(app.getPath('userData'), 'chrome-managed');
 }
 
 function findChrome() {
   if (process.env.DENUNDIKE_CHROME && fs.existsSync(process.env.DENUNDIKE_CHROME)) return process.env.DENUNDIKE_CHROME;
   if (process.platform === 'linux') {
-    const local = linuxLocalChromePath();
-    if (fs.existsSync(local)) return local;
+    const p = linuxLocalChromePath();
+    return fs.existsSync(p) ? p : null;
   }
-  return chromePaths().find((p) => fs.existsSync(p)) || null;
+  if (process.platform === 'win32') {
+    // só usa o Chrome se foi instalado pelo próprio app (marcador presente)
+    if (fs.existsSync(winManagedMarker())) {
+      const p = winManagedChromePath();
+      return fs.existsSync(p) ? p : null;
+    }
+    return null;
+  }
+  return null;
 }
 
 function findBrowser() {
@@ -189,6 +193,20 @@ async function installAdGuard(onProgress) {
   }
 }
 
+/* ── download silencioso do Chrome na inicialização ── */
+let chromeBusy = null;
+/** baixa o Chrome em background se ainda não estiver presente; nunca lança */
+function ensureChrome() {
+  if (findChrome()) return Promise.resolve(true);
+  if (!chromeBusy) {
+    chromeBusy = downloadChrome()
+      .then(() => true)
+      .catch(() => false)
+      .finally(() => { chromeBusy = null; });
+  }
+  return chromeBusy;
+}
+
 let adgBusy = null;
 /** baixa/atualiza o AdGuard; nunca lança. Chamadas simultâneas dividem o mesmo download. */
 function ensureAdGuard(onProgress) {
@@ -208,6 +226,8 @@ async function downloadChrome(onProgress) {
     await new Promise((res, rej) => {
       execFile(tmpExe, [], (err) => { try { fs.unlinkSync(tmpExe); } catch (_) {} err ? rej(err) : res(); });
     });
+    // marca que o Chrome foi instalado pelo próprio app
+    try { fs.writeFileSync(winManagedMarker(), '1'); } catch (_) {}
   } else if (process.platform === 'linux') {
     const tmpDeb = path.join(os.tmpdir(), 'chrome_' + Date.now() + '.deb');
     await downloadFile('https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb', tmpDeb, onProgress);
@@ -306,9 +326,10 @@ async function stopSession(notify) {
   if (p && p.exitCode === null) await new Promise((res) => { const t = setTimeout(res, 4000); p.once('exit', () => { clearTimeout(t); res(); }); });
 }
 
-// Viewport 16:9 de h linhas. Na abertura a moldura (--window-size) soma 16 px de largura e 39 de altura;
-// ao redimensionar por CDP a barra de título soma ~31 px (o ajuste fino mede o viewport de verdade).
-const FRAME_W = 16, FRAME_H = 39, TITLE_H = 31;
+// Viewport 16:9 de h linhas. Na abertura a moldura (--window-size) soma 16 px de largura e 104 de altura
+// (título + barra de abas + barra de endereço do Chrome completo); ao redimensionar por CDP o loop de
+// calibração mede o viewport real e corrige.
+const FRAME_W = 16, FRAME_H = 104, TITLE_H = 100;
 function windowFor(h) {
   h = [720, 1080, 1440].includes(Number(h)) ? Number(h) : 1080;
   let w = Math.round(h * 16 / 9);
@@ -342,8 +363,20 @@ async function loadAdguard(s) {
 
 async function startSession(sender, url, opts, retried) {
   if (cur) await stopSession(false);
-  const found = findBrowser();
-  if (!found) return { error: 'no-chrome' };
+  let found = findBrowser();
+  if (!found) {
+    const prep = (state, pct) => { try { if (!sender.isDestroyed()) sender.send('browser-prep', { what: 'chrome', state, pct: pct || 0 }); } catch (_) {} };
+    prep('start', 0);
+    try {
+      await downloadChrome((pct) => prep('progress', pct));
+      prep('end', 100);
+    } catch (e) {
+      prep('end', 0);
+      return { error: 'no-chrome' };
+    }
+    found = findBrowser();
+    if (!found) return { error: 'no-chrome' };
+  }
   const chrome = found.path;
   if (url && !isWebUrl(url)) return { error: 'bad-url' };
 
@@ -374,13 +407,14 @@ async function startSession(sender, url, opts, retried) {
     '--remote-debugging-address=127.0.0.1',
     '--disable-blink-features=AutomationControlled',
     '--test-type',
-    '--app=data:text/html,<title>' + token + '</title><body style="background:%23000">',
     '--window-size=' + (win.w + FRAME_W) + ',' + (win.h + FRAME_H), '--window-position=30,20',
     '--no-first-run', '--no-default-browser-check',
     '--disable-gpu',
     '--autoplay-policy=no-user-gesture-required',
     '--disable-backgrounding-occluded-windows', '--disable-renderer-backgrounding',
     '--disable-background-timer-throttling',
+    // abre uma aba com o token no título para acharmos a janela; navega para o Google logo depois
+    'data:text/html,<title>' + token + '</title><script>setTimeout(()=>location.replace("https://www.google.com.br"),80)</script>',
   ];
   // O Chrome de marca (137+) ignora --load-extension. O que funciona é carregar a extensão pelo protocolo
   // DevTools (Extensions.loadUnpacked), que exige --enable-unsafe-extension-debugging. A porta só escuta em 127.0.0.1.
@@ -619,4 +653,4 @@ function registerBrowserIpc() {
   setInterval(() => ensureAdGuard(), 3600 * 1000);
 }
 
-module.exports = { registerBrowserIpc, ensureAdGuard, adguardDir, adguardTag, findChrome, findBrowser, isWebUrl, startSession, stopSession, navigate, inputEvent, route, getCurrent: () => cur };
+module.exports = { registerBrowserIpc, ensureChrome, ensureAdGuard, adguardDir, adguardTag, findChrome, findBrowser, isWebUrl, startSession, stopSession, navigate, inputEvent, route, getCurrent: () => cur };

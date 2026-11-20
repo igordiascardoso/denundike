@@ -104,16 +104,21 @@
       }
     }
 
-    /** o processo principal está baixando o AdGuard antes de abrir o Chrome (só a primeira vez ou se o anterior falhou) */
+    /** o processo principal está baixando o Chrome ou o AdGuard antes de abrir (só na primeira vez) */
     _onPrep(p) {
-      if (this._downloading || !p || p.what !== 'adguard') return;
+      if (this._downloading || !p || (p.what !== 'adguard' && p.what !== 'chrome')) return;
       const m = $('#m-chromedl');
       if (!m) return;
       const h = m.querySelector('h2'), t = m.querySelector('p');
       if (!this._dlTxt) this._dlTxt = { h: h.textContent, p: t.textContent };
       if (p.state === 'end') { m.hidden = true; h.textContent = this._dlTxt.h; t.textContent = this._dlTxt.p; return; }
-      h.textContent = 'Preparando o bloqueador de anúncios';
-      t.textContent = 'Baixando o AdGuard para o navegador compartilhado (só na primeira vez).';
+      if (p.what === 'chrome') {
+        h.textContent = 'Baixando o navegador';
+        t.textContent = 'O Google Chrome será instalado automaticamente (só na primeira vez).';
+      } else {
+        h.textContent = 'Preparando o bloqueador de anúncios';
+        t.textContent = 'Baixando o AdGuard para o navegador compartilhado (só na primeira vez).';
+      }
       m.hidden = false;
       this._setDlProgress(p.pct || 0);
     }

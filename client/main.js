@@ -3,7 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const { autoUpdater } = require('electron-updater');
 const { setupMedia, registerMediaIpc } = require('./media');
-const { registerBrowserIpc } = require('./browserhost');
+const { registerBrowserIpc, ensureChrome } = require('./browserhost');
 
 app.setName('Denundike');
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
@@ -403,6 +403,7 @@ function boot() {
     setupMedia(session.defaultSession);
     registerMediaIpc();
     registerBrowserIpc();
+    ensureChrome(); // baixa o Chrome em background se ainda não estiver presente
     createTray();
     createLoginWindow();
     // Sem checkForUpdatesAndNotify: o aviso nativo dele sai em inglês. Quem avisa somos nós, em português.
