@@ -408,9 +408,14 @@ async function stopSession(notify) {
 // (título + barra de abas + barra de endereço do Chrome completo); ao redimensionar por CDP o loop de
 // calibração mede o viewport real e corrige.
 const FRAME_W = 16, FRAME_H = 104, TITLE_H = 100;
+// Linux: o Chrome roda sem janela (headless) e os quadros vêm pelo DevTools (screencast); no Wayland
+// não existe como achar nem esconder a janela de outro programa, então nada depende dela.
+const CAST = process.platform === 'linux';
+
 function windowFor(h) {
   h = [720, 1080, 1440].includes(Number(h)) ? Number(h) : 1080;
   let w = Math.round(h * 16 / 9);
+  if (CAST) return { h, w };
   // a janela nunca passa do tamanho da tela: o Windows corta o excedente e o recorte/mouse deixariam de bater com a página
   try {
     const d = require('electron').screen.getPrimaryDisplay().size; // só depois do 'ready'
@@ -495,7 +500,7 @@ async function startSession(sender, url, opts, retried) {
   // DevTools (Extensions.loadUnpacked), que exige --enable-unsafe-extension-debugging. A porta só escuta em 127.0.0.1.
   args.push('--enable-unsafe-extension-debugging');
   if (process.platform === 'linux') {
-    args.push('--enable-audio-output-capture');
+    args.push('--headless=new');
     // Ubuntu e derivados podem não ter user namespaces habilitados; --no-sandbox resolve
     args.push('--no-sandbox');
   }
@@ -526,10 +531,34 @@ async function startSession(sender, url, opts, retried) {
     s.cdp.onEvent = (m) => {
       if (s.onTarget && !m.sessionId) s.onTarget(m);
       if (m.sessionId !== s.sessionId || sender.isDestroyed()) return;
+      if (m.method === 'Page.screencastFrame') {
+        sender.send('browser-frame', m.params.data);
+        s.cdp.send('Page.screencastFrameAck', { sessionId: m.params.sessionId }, s.sessionId).catch(() => {});
+        return;
+      }
       if (m.method === 'Page.frameNavigated' && !m.params.frame.parentId) sender.send('browser-url', m.params.frame.url);
       else if (m.method === 'Page.navigatedWithinDocument') sender.send('browser-url', m.params.url);
     };
     try { s.windowId = (await s.cdp.send('Browser.getWindowForTarget', { targetId: s.targetId })).windowId; } catch (_) {}
+
+    if (CAST) {
+      s.cast = true;
+      // headless se identifica como HeadlessChrome e alguns sites desconfiam: apresenta como Chrome comum
+      try {
+        const v = await s.cdp.send('Browser.getVersion');
+        await s.cdp.send('Emulation.setUserAgentOverride', { userAgent: String(v.userAgent || '').replace('HeadlessChrome', 'Chrome') }, s.sessionId);
+      } catch (_) {}
+      await startCast(s, win);
+      s.poll = setInterval(async () => {
+        if (cur !== s) return;
+        try {
+          const mv = await s.cdp.send('Runtime.evaluate', { expression: "[...document.querySelectorAll('video')].some(v=>!v.paused&&!v.ended&&v.readyState>2&&v.videoWidth>0)", returnByValue: true }, s.sessionId);
+          const moving = mv.result && mv.result.value === true;
+          if (moving !== s.moving) { s.moving = moving; if (!sender.isDestroyed()) sender.send('browser-motion', moving); }
+        } catch (_) {}
+      }, 1000);
+      return { ok: true, cast: true, w: win.w, h: win.h, startUrl: url || null, browser: found.name };
+    }
 
     // acha a janela do Chrome pelo título único e devolve o id de captura
     let sourceId = null;
@@ -560,6 +589,13 @@ async function startSession(sender, url, opts, retried) {
     if (!retried && /chrome exited/.test(String(e && e.message))) { await sleep(1500); return startSession(sender, url, opts, true); }
     return { error: e.message || 'failed' };
   }
+}
+
+/** fixa o viewport em w x h e começa a receber os quadros da página */
+async function startCast(s, win) {
+  await s.cdp.send('Emulation.setDeviceMetricsOverride', { width: win.w, height: win.h, deviceScaleFactor: 1, mobile: false }, s.sessionId);
+  await s.cdp.send('Page.startScreencast', { format: 'jpeg', quality: 80, maxWidth: win.w, maxHeight: win.h, everyNthFrame: 1 }, s.sessionId);
+  s.vpAt = 0;
 }
 
 async function viewport(s) {
@@ -682,6 +718,10 @@ function registerBrowserIpc() {
   ipcMain.handle('browser-start', (e, url, opts) => startSession(e.sender, url, opts));
   // a resolução escolhida na Qualidade vira o tamanho real da janela: 1440p captura de fato 2560x1440
   ipcMain.handle('browser-resize', async (_e, h) => {
+    if (cur && cur.cast) {
+      const s = cur;
+      try { await s.cdp.send('Page.stopScreencast', {}, s.sessionId); await startCast(s, windowFor(h)); return true; } catch (_) { return false; }
+    }
     if (!cur || !cur.windowId) return false;
     const s = cur, w = windowFor(h);
     try {

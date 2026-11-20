@@ -65,6 +65,7 @@ contextBridge.exposeInMainWorld('bridge', {
     onUrl: (cb) => ipcRenderer.on('browser-url', (_e, u) => cb(u)),
     onEnded: (cb) => ipcRenderer.on('browser-ended', () => cb()),
     onSize: (cb) => ipcRenderer.on('browser-size', () => cb()),
+    onFrame: (cb) => ipcRenderer.on('browser-frame', (_e, d) => cb(d)),
     onMotion: (cb) => ipcRenderer.on('browser-motion', (_e, m) => cb(!!m)),
     download: () => ipcRenderer.invoke('browser-download-start'),
     onDownloadProgress: (cb) => ipcRenderer.on('browser-download-progress', (_e, pct) => cb(pct)),

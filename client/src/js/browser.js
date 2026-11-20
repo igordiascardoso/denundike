@@ -39,6 +39,7 @@
         window.bridge.browser.onUrl((u) => { if (this.isHost) this._sendCall('browser_url', { url: u }); });
         window.bridge.browser.onEnded(() => { if (this.local) { this._sendCall('browser_stop'); this._stopLocal(); this.o.toast('O navegador do anfitrião foi fechado — sessão encerrada.'); } });
         window.bridge.browser.onSize(() => this._recalibrateSoon());
+        window.bridge.browser.onFrame((d) => this._onFrame(d));
         window.bridge.browser.onMotion((m) => {
           const t = this.local && this.local.out && this.local.out.getVideoTracks()[0];
           // no modo automático o app troca a dica quando há vídeo tocando na página; nos outros modos vale a escolha do usuário
@@ -209,6 +210,27 @@
         if (!this.local) return;
         if (r.error === 'no-chrome') return fail('Não foi possível iniciar o Chrome. Reinicie o app e tente novamente.');
         if (r.error) return fail('Não consegui abrir o navegador (' + r.error + ').');
+        if (r.cast) {
+          // Linux: o Chrome não tem janela; os quadros chegam do processo principal e vão direto para o canvas da transmissão
+          L.cast = true;
+          L.canvas = document.createElement('canvas');
+          L.canvas.width = r.w - (r.w % 4); L.canvas.height = r.h - (r.h % 2);
+          L.ctx = L.canvas.getContext('2d', { alpha: false });
+          L.ctx.fillStyle = '#000'; L.ctx.fillRect(0, 0, L.canvas.width, L.canvas.height);
+          L.ctx.imageSmoothingQuality = 'high';
+          this._winH = this.o.call.quality.h;
+          this._restartDraw();
+          const ctrack = L.canvas.captureStream().getVideoTracks()[0];
+          ctrack.contentHint = this.o.call.hint();
+          L.out = new MediaStream([ctrack]);
+          this.o.call.setBrowserStream(L.out);
+          await window.bridge.browser.nav({ action: 'go', url: url || 'https://www.google.com' });
+          L.ready = true;
+          if (this._pendingNav) { const n = this._pendingNav; this._pendingNav = null; window.bridge.browser.nav(n); }
+          this.starting = false;
+          this.render();
+          return;
+        }
         await window.bridge.screen.choose(r.sourceId, true);
         let raw;
         try { raw = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: { ideal: 30 } }, audio: true }); }
@@ -315,16 +337,48 @@
 
     /** o usuário trocou a qualidade: a tela cheia do canvas acompanha (resolução e fps) */
     applyQuality() {
-      if (!this.local || !this.local.crop) return;
+      if (!this.local) return;
       const h = this.o.call.quality.h;
+      if (this.local.cast) {
+        if (this._winH !== h) { this._winH = h; window.bridge.browser.resize(h).catch(() => {}); }
+        this._restartDraw();
+        return;
+      }
+      if (!this.local.crop) return;
       // a janela do Chrome acompanha a resolução: o aviso de mudança de tamanho recalibra o recorte sozinho
       if (this._winH !== h) { this._winH = h; window.bridge.browser.resize(h).catch(() => {}); }
       this._applyCrop();
       this._restartDraw();
     }
 
+    /** quadro JPEG novo do Chrome sem janela: guarda só o mais recente e decodifica um por vez */
+    _onFrame(data) {
+      const L = this.local;
+      if (!L || !L.cast || !L.running) return;
+      L.frameData = data;
+      if (L.decoding) return;
+      L.decoding = true;
+      const img = new Image();
+      const done = () => {
+        L.decoding = false;
+        if (this.local === L && L.frameData !== data) this._onFrame(L.frameData);
+      };
+      img.onload = () => { L.img = img; done(); };
+      img.onerror = done;
+      img.src = 'data:image/jpeg;base64,' + data;
+    }
+
     _draw() {
       const L = this.local;
+      if (L && L.cast) {
+        if (!L.running || !L.img) return;
+        const w = L.img.naturalWidth - (L.img.naturalWidth % 4), h = L.img.naturalHeight - (L.img.naturalHeight % 2);
+        if (w < 4 || h < 2) return;
+        if (L.canvas.width !== w || L.canvas.height !== h) { L.canvas.width = w; L.canvas.height = h; L.ctx.imageSmoothingQuality = 'high'; }
+        // redesenha o último quadro a cada tick: página parada não gera quadro novo e a transmissão não pode congelar para quem entra depois
+        try { L.ctx.drawImage(L.img, 0, 0, w, h); } catch (_) {}
+        return;
+      }
       if (!L || !L.running || L.calibrating || !L.crop || !L.video.videoWidth) return;
       const r = L.src || L.crop;
       try { L.ctx.drawImage(L.video, r.x, r.y, r.w, r.h, 0, 0, L.canvas.width, L.canvas.height); } catch (_) {}
@@ -353,6 +407,7 @@
       try { this.o.call.setBrowserStream(null); } catch (_) {}
       [L.raw, L.out].forEach((s) => s && s.getTracks().forEach((t) => { t.onended = null; try { t.stop(); } catch (_) {} }));
       if (L.video) { L.video.pause(); L.video.srcObject = null; }
+      L.img = null; L.frameData = null;
       try { await window.bridge.browser.stop(); } catch (_) {}
       this.render();
     }

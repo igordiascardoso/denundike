@@ -2,6 +2,10 @@ const { ipcMain, desktopCapturer } = require('electron');
 
 let chosenSource = null;
 
+// No Wayland cada getSources abre o seletor do sistema e devolve só a fonte escolhida:
+// listar e depois capturar abriria o seletor duas vezes e os IDs nunca bateriam.
+const WAYLAND = process.platform === 'linux' && (process.env.XDG_SESSION_TYPE === 'wayland' || !!process.env.WAYLAND_DISPLAY);
+
 function setupMedia(ses) {
   const allowed = new Set(['media', 'display-capture', 'fullscreen', 'clipboard-sanitized-write']);
   ses.setPermissionRequestHandler((_wc, permission, cb) => cb(allowed.has(permission)));
@@ -11,7 +15,8 @@ function setupMedia(ses) {
     chosenSource = null;
     if (!pick) return callback({});
     desktopCapturer.getSources({ types: ['screen', 'window'] }).then((sources) => {
-      const src = sources.find((x) => x.id === pick.id);
+      let src = sources.find((x) => x.id === pick.id);
+      if (!src && process.platform === 'linux' && sources.length) src = sources[0];
       if (!src) return callback({});
       const result = { video: src };
       if (pick.audio && process.platform === 'win32') result.audio = 'loopback';
@@ -22,6 +27,7 @@ function setupMedia(ses) {
 
 function registerMediaIpc() {
   ipcMain.handle('screen-sources', async () => {
+    if (WAYLAND) return [{ id: 'portal', name: 'Escolher a tela ou janela no seletor do sistema', isScreen: true, thumb: '' }];
     const sources = await desktopCapturer.getSources({
       types: ['screen', 'window'],
       thumbnailSize: { width: 320, height: 200 },
