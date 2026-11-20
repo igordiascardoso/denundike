@@ -195,14 +195,17 @@ async function installAdGuard(onProgress) {
 
 /* ── download silencioso do Chrome na inicialização ── */
 let chromeBusy = null;
-/** baixa o Chrome em background se ainda não estiver presente; nunca lança */
-function ensureChrome() {
+let _chromeProgressCb = null;
+/** baixa o Chrome em background se ainda não estiver presente; nunca lança.
+ *  Se já estiver baixando, onProgress é registrado na promise em curso. */
+function ensureChrome(onProgress) {
   if (findChrome()) return Promise.resolve(true);
+  if (onProgress) _chromeProgressCb = onProgress;
   if (!chromeBusy) {
-    chromeBusy = downloadChrome()
+    chromeBusy = downloadChrome((pct) => { if (_chromeProgressCb) _chromeProgressCb(pct); })
       .then(() => true)
       .catch(() => false)
-      .finally(() => { chromeBusy = null; });
+      .finally(() => { chromeBusy = null; _chromeProgressCb = null; });
   }
   return chromeBusy;
 }
@@ -367,13 +370,10 @@ async function startSession(sender, url, opts, retried) {
   if (!found) {
     const prep = (state, pct) => { try { if (!sender.isDestroyed()) sender.send('browser-prep', { what: 'chrome', state, pct: pct || 0 }); } catch (_) {} };
     prep('start', 0);
-    try {
-      await downloadChrome((pct) => prep('progress', pct));
-      prep('end', 100);
-    } catch (e) {
-      prep('end', 0);
-      return { error: 'no-chrome' };
-    }
+    // usa ensureChrome para não duplicar download se já estiver rodando em background
+    const ok = await ensureChrome((pct) => prep('progress', pct));
+    prep('end', 100);
+    if (!ok) return { error: 'no-chrome' };
     found = findBrowser();
     if (!found) return { error: 'no-chrome' };
   }
