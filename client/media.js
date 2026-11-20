@@ -14,7 +14,7 @@ function setupMedia(ses) {
     const pick = chosenSource;
     chosenSource = null;
     if (!pick) return callback({});
-    desktopCapturer.getSources({ types: ['screen', 'window'] }).then((sources) => {
+    desktopCapturer.getSources({ types: ['screen', 'window'], thumbnailSize: { width: 0, height: 0 }, fetchWindowIcons: false }).then((sources) => {
       let src = sources.find((x) => x.id === pick.id);
       if (!src && process.platform === 'linux' && sources.length) src = sources[0];
       if (!src) return callback({});

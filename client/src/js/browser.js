@@ -237,10 +237,25 @@
           this.render();
           return;
         }
-        await window.bridge.screen.choose(r.sourceId, true);
+        // A captura do áudio do sistema pode travar sem erro em alguns PCs: dá 12 s e tenta de novo só com vídeo.
+        const grab = (audio) => new Promise(async (res, rej) => {
+          let over = false;
+          const t = setTimeout(() => { over = true; rej(new Error('timeout')); }, 12000);
+          try {
+            await window.bridge.screen.choose(r.sourceId, audio);
+            const s = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: { ideal: 30 } }, audio });
+            clearTimeout(t);
+            if (over) { s.getTracks().forEach((x) => x.stop()); return; }
+            over = true; res(s);
+          } catch (e) { clearTimeout(t); if (!over) { over = true; rej(e); } }
+        });
         let raw;
-        try { raw = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: { ideal: 30 } }, audio: true }); }
-        catch (_) { return fail('Não consegui capturar a janela do navegador.'); }
+        try { raw = await grab(true); }
+        catch (_) {
+          if (!this.local) return;
+          try { raw = await grab(false); }
+          catch (_) { return fail('Não consegui capturar a janela do navegador.'); }
+        }
         if (!this.local) { raw.getTracks().forEach((t) => t.stop()); return; }
         L.raw = raw;
         raw.getVideoTracks()[0].onended = () => { if (this.local === L) { this._sendCall('browser_stop'); this._stopLocal(); } };

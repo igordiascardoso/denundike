@@ -584,6 +584,8 @@ async function startSession(sender, url, opts, retried) {
       if (hit) sourceId = hit.id; else await sleep(150);
     }
     if (!sourceId) throw new Error('window not found');
+    // achada a janela, vai direto para a página: ninguém fica olhando a aba em branco do token
+    s.cdp.send('Page.navigate', { url: url || 'https://www.google.com' }, s.sessionId).catch(() => {});
 
     s.poll = setInterval(async () => {
       if (cur !== s || !s.windowId) return;
