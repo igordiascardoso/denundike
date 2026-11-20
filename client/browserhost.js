@@ -424,7 +424,8 @@ async function stopSession(notify) {
 const FRAME_W = 16, FRAME_H = 104, TITLE_H = 100;
 // Linux: o Chrome roda sem janela (headless) e os quadros vêm pelo DevTools (screencast); no Wayland
 // não existe como achar nem esconder a janela de outro programa, então nada depende dela.
-const CAST = process.platform === 'linux';
+// Windows também: com janela de verdade o Chrome aparece na barra de tarefas e a captura falha em alguns PCs (Windows 10).
+const CAST = true;
 
 function windowFor(h) {
   h = [720, 1080, 1440].includes(Number(h)) ? Number(h) : 1080;
@@ -447,14 +448,6 @@ async function loadAdguard(s) {
     const r = await s.cdp.send('Extensions.loadUnpacked', { path: adg });
     s.adgDir = adg; s.adgId = r.id;
     adgLog('extensão carregada no Chrome (id ' + r.id + ', versão ' + path.basename(adg) + ')');
-    s.cdp.send('Target.setDiscoverTargets', { discover: true }).catch(() => {});
-    const stray = (t) => t && t.type === 'page' && t.targetId !== s.targetId && (/^chrome-extension:\/\//i.test(t.url || '') || /^https?:\/\/([\w-]+\.)*adguard\.(com|org|info)\b/i.test(t.url || ''));
-    s.onTarget = (m) => {
-      if (m.method === 'Target.targetCreated' || m.method === 'Target.targetInfoChanged') {
-        const t = m.params && m.params.targetInfo;
-        if (stray(t)) s.cdp.send('Target.closeTarget', { targetId: t.targetId }).catch(() => {});
-      }
-    };
   } catch (e) { adgLog('Extensions.loadUnpacked falhou: ' + ((e && e.message) || e)); }
 }
 
@@ -515,12 +508,10 @@ async function startSession(sender, url, opts, retried) {
   // O Chrome de marca (137+) ignora --load-extension. O que funciona é carregar a extensão pelo protocolo
   // DevTools (Extensions.loadUnpacked), que exige --enable-unsafe-extension-debugging. A porta só escuta em 127.0.0.1.
   args.push('--enable-unsafe-extension-debugging');
-  if (process.platform === 'linux') {
-    args.push('--headless=new');
-    // Ubuntu e derivados podem não ter user namespaces habilitados; --no-sandbox resolve
-    args.push('--no-sandbox');
-  }
-  const proc = spawn(chrome, args, { stdio: 'ignore', windowsHide: false });
+  args.push('--headless=new');
+  // Ubuntu e derivados podem não ter user namespaces habilitados; --no-sandbox resolve
+  if (process.platform === 'linux') args.push('--no-sandbox');
+  const proc = spawn(chrome, args, { stdio: 'ignore', windowsHide: true });
   const s = { proc, sender, token, cdp: null, sessionId: null, targetId: null, windowId: null, vp: null, vpAt: 0, buttons: 0, lastDown: {}, size: '', owner: null, ownerT: 0, queue: [], moving: false };
   cur = s;
   proc.on('exit', () => { if (cur === s) { cur = null; clearInterval(s.poll); if (!sender.isDestroyed()) sender.send('browser-ended'); } });
@@ -530,6 +521,22 @@ async function startSession(sender, url, opts, retried) {
     const ws = new WebSocket('ws://127.0.0.1:' + port + wsPath);
     await new Promise((res, rej) => { ws.addEventListener('open', res); ws.addEventListener('error', () => rej(new Error('cdp connect'))); });
     s.cdp = new CDP(ws);
+
+    // Abas novas (links com target=_blank, pop-ups) não existem na tela compartilhada: o endereço abre na
+    // própria aba e a nova é fechada. As páginas que o AdGuard abre ao instalar são só fechadas.
+    s.cdp.send('Target.setDiscoverTargets', { discover: true }).catch(() => {});
+    s.onTarget = (m) => {
+      if (m.method !== 'Target.targetCreated' && m.method !== 'Target.targetInfoChanged') return;
+      const t = m.params && m.params.targetInfo;
+      if (!t || t.type !== 'page' || !s.targetId || t.targetId === s.targetId) return;
+      const u = t.url || '';
+      if (/^chrome-extension:\/\//i.test(u) || /^https?:\/\/([\w-]+\.)*adguard\.(com|org|info)\b/i.test(u)) {
+        s.cdp.send('Target.closeTarget', { targetId: t.targetId }).catch(() => {});
+      } else if (isWebUrl(u)) {
+        s.cdp.send('Target.closeTarget', { targetId: t.targetId }).catch(() => {});
+        s.cdp.send('Page.navigate', { url: u }, s.sessionId).catch(() => {});
+      }
+    };
 
     if (adguardDir()) await loadAdguard(s);
     else if (adgPending) adgPending.then((ok) => { if (ok === true && cur === s && s.cdp) loadAdguard(s); }).catch(() => {});

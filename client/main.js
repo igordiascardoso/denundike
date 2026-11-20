@@ -58,7 +58,9 @@ function saveSettings() {
 
 /* Segundo plano só existe onde há bandeja de verdade. O GNOME puro não mostra o ícone,
    e esconder a janela lá deixaria o app invisível e impossível de fechar. */
-const TRAY_SUPPORTED = process.platform !== 'linux' || !/gnome/i.test(process.env.XDG_CURRENT_DESKTOP || '');
+const DESKTOP = process.env.XDG_CURRENT_DESKTOP || '';
+// Zorin, Ubuntu e Pop!_OS usam GNOME, mas já trazem a extensão de ícones de bandeja (AppIndicator).
+const TRAY_SUPPORTED = process.platform !== 'linux' || !/gnome/i.test(DESKTOP) || /zorin|ubuntu|pop|unity|budgie|cinnamon|kde|xfce|mate/i.test(DESKTOP);
 const LOGIN_ITEM_SUPPORTED = process.platform === 'win32' || process.platform === 'darwin';
 
 const alive = (w) => !!w && !w.isDestroyed();
