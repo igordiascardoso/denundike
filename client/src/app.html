@@ -156,6 +156,8 @@ select.in{appearance:none;background:var(--bg0) url("data:image/svg+xml,%3Csvg x
 .snav .out:hover{background:var(--hot);color:#fff;border-color:var(--hot)}
 .spane{padding:26px 28px;overflow:auto;display:grid;gap:16px;align-content:start;height:100%}
 .spane h2{font-size:22px;font-weight:800}
+/* barras de rolagem finas e escuras em todo o app (as regras mais específicas abaixo continuam valendo) */
+*{scrollbar-width:thin;scrollbar-color:var(--bg4) transparent}
 .aset{display:grid;gap:14px;padding:18px;border:1px solid var(--line);border-radius:var(--r-l);background:var(--bg1)}
 .aset h3{display:flex;align-items:center;gap:12px;margin:0;font:700 16px var(--display);letter-spacing:0;text-transform:none;color:var(--text)}
 .aset h3 small{font:500 12px var(--body);color:var(--dim);margin-left:2px}
