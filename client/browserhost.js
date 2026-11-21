@@ -512,8 +512,6 @@ async function startSession(sender, url, opts, retried) {
   // o som sai pelo app (volume próprio do anfitrião), não direto pelo Chrome
   // o som sai pelo app (volume próprio do anfitrião), não direto pelo Chrome
   args.push('--mute-audio');
-  // sem isto o Chrome entrega SILÊNCIO ao app para áudio/vídeo vindo de outro domínio sem CORS (a maioria dos sites de streaming)
-  args.push('--disable-web-security');
   if (CAST) args.push('--headless=new');
   // Ubuntu e derivados podem não ter user namespaces habilitados; --no-sandbox resolve
   if (process.platform === 'linux') args.push('--no-sandbox');
@@ -681,6 +679,7 @@ const AUDIO_JS = `(() => {
   };
   // sites que tocam só por WebAudio (sem <video>/<audio>): quem liga no destino da página também liga num captador
   try {
+    if (/(^|[.])(cloudflare[.]com|netflix[.]com|primevideo[.]com|disneyplus[.]com|hbomax[.]com|max[.]com|nflxvideo[.]net)$/.test(location.hostname)) throw 0;
     const conn = AudioNode.prototype.connect;
     AudioNode.prototype.connect = function (dest) {
       try {
@@ -710,6 +709,7 @@ const AUDIO_JS = `(() => {
 // Tela cheia dos players: a janela do Chrome fica escondida e o Chrome não entra em tela cheia de verdade ali.
 // O app simula: o elemento (ou o iframe do player) preenche toda a área da página compartilhada.
 const FS_JS = `(() => {
+  if (/(^|[.])(cloudflare[.]com|netflix[.]com|primevideo[.]com|disneyplus[.]com|hbomax[.]com|max[.]com|nflxvideo[.]net)$/.test(location.hostname)) return;   // páginas com verificação anti-robô ou DRM: sem mexer em nada
   if (window.__dndkF) return; window.__dndkF = 1;
   const FULL = 'position:fixed!important;inset:0!important;width:100vw!important;height:100vh!important;max-width:none!important;max-height:none!important;z-index:2147483646!important;background:#000!important;margin:0!important;transform:none!important;border:0!important';
   let cur = null, saved = null;
