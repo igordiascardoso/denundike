@@ -12,16 +12,32 @@ const os = require('os');
    protocolo DevTools. Convidados nunca falam com o Chrome: só eventos de
    mouse/teclado/navegação já filtrados passam por aqui. */
 
-// O app sempre usa o Chrome que ele mesmo baixou — nunca o Chrome do sistema da pessoa.
 // Linux: extraído do .deb em userData/chrome
-// Windows: instalado pelo setup e marcado com userData/chrome-managed
+// Windows: Chrome genuíno extraído do MSI enterprise em userData/chrome-genuine; fallback Chrome for Testing em chrome-win64
 function linuxLocalChromePath() {
   return path.join(app.getPath('userData'), 'chrome', 'opt', 'google', 'chrome', 'google-chrome');
 }
 
-// Windows: Chrome for Testing portátil extraído em userData/chrome-win64/chrome.exe
+// Windows: Chrome for Testing portátil (sem DRM) — fallback apenas
 function winManagedChromePath() {
   return path.join(app.getPath('userData'), 'chrome-win64', 'chrome.exe');
+}
+
+// Windows: Chrome genuíno extraído do MSI enterprise (tem Widevine/DRM)
+function winGenuineChromePath() {
+  return path.join(app.getPath('userData'), 'chrome-genuine', 'Google', 'Chrome', 'Application', 'chrome.exe');
+}
+
+// Windows: Chrome instalado no sistema (tem Widevine nativo)
+function findSystemChrome() {
+  if (process.platform !== 'win32') return null;
+  const locs = [
+    path.join(process.env['PROGRAMFILES'] || 'C:\\Program Files', 'Google', 'Chrome', 'Application', 'chrome.exe'),
+    path.join(process.env['LOCALAPPDATA'] || '', 'Google', 'Chrome', 'Application', 'chrome.exe'),
+    path.join(process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)', 'Google', 'Chrome', 'Application', 'chrome.exe'),
+  ];
+  for (const p of locs) { if (p && fs.existsSync(p)) return p; }
+  return null;
 }
 
 function findChrome() {
@@ -31,8 +47,14 @@ function findChrome() {
     return fs.existsSync(p) ? p : null;
   }
   if (process.platform === 'win32') {
-    const p = winManagedChromePath();
-    return fs.existsSync(p) ? p : null;
+    // Preferência: Chrome genuíno (tem Widevine/DRM para Netflix etc.)
+    const sys = findSystemChrome();
+    if (sys) return sys;
+    const gen = winGenuineChromePath();
+    if (fs.existsSync(gen)) return gen;
+    // Fallback: Chrome for Testing (sem DRM, mas funcional)
+    const cft = winManagedChromePath();
+    return fs.existsSync(cft) ? cft : null;
   }
   return null;
 }
@@ -282,9 +304,37 @@ function ensureAdGuard(onProgress) {
 }
 
 /* ── download do Chrome ── */
+
+/** baixa o Chrome Enterprise MSI e extrai portátil em userData/chrome-genuine (tem Widevine/DRM) */
+async function downloadGenuineChrome(onProgress) {
+  const msiUrl = 'https://dl.google.com/dl/chrome/install/googlechromestandaloneenterprise64.msi';
+  const msiPath = path.join(os.tmpdir(), 'chrome_enterprise_' + Date.now() + '.msi');
+  const destDir = path.join(app.getPath('userData'), 'chrome-genuine');
+  try {
+    await downloadFile(msiUrl, msiPath, onProgress);
+    try { fs.rmSync(destDir, { recursive: true, force: true }); } catch (_) {}
+    fs.mkdirSync(destDir, { recursive: true });
+    // extrai o MSI sem instalar no sistema (admin install = extração de arquivos)
+    await new Promise((resolve, reject) => {
+      const proc = spawn('msiexec', ['/a', msiPath, '/qn', 'TARGETDIR=' + destDir], { stdio: 'ignore', windowsHide: true });
+      const t = setTimeout(() => { try { proc.kill(); } catch (_) {} reject(new Error('msiexec timeout')); }, 180000);
+      proc.on('exit', (code) => { clearTimeout(t); code === 0 ? resolve() : reject(new Error('msiexec exit ' + code)); });
+      proc.on('error', (e) => { clearTimeout(t); reject(e); });
+    });
+    if (!fs.existsSync(winGenuineChromePath())) throw new Error('chrome.exe não encontrado após extração do MSI');
+  } finally {
+    try { fs.rmSync(msiPath, { force: true }); } catch (_) {}
+  }
+}
+
 async function downloadChrome(onProgress) {
   if (process.platform === 'win32') {
-    // Chrome for Testing: build oficial do Google em ZIP portátil — sem instalador, sem admin.
+    // Tenta Chrome genuíno (com Widevine/DRM) via MSI enterprise do Google
+    try {
+      await downloadGenuineChrome(onProgress);
+      return;
+    } catch (_) {}
+    // Fallback: Chrome for Testing (sem DRM, mas funcional para outros sites)
     const manifest = await httpsJson('https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions-with-downloads.json', 15000);
     const downloads = manifest && manifest.channels && manifest.channels.Stable && manifest.channels.Stable.downloads && manifest.channels.Stable.downloads.chrome;
     if (!Array.isArray(downloads)) throw new Error('manifesto CfT inválido');
