@@ -441,6 +441,27 @@ function windowFor(h) {
   return { h, w };
 }
 
+// sites de streaming/DRM que nunca devem ser filtrados pelo AdGuard
+const ADGUARD_ALLOW_HOSTS = ['netflix.com', 'primevideo.com', 'disneyplus.com', 'max.com', 'hbomax.com', 'hotmart.com'];
+
+/** adiciona os sites de DRM ao allowlist do AdGuard via service worker CDP */
+async function configureAdGuardAllowlist(s) {
+  if (!s.cdp || !s.adgId) return;
+  try {
+    await sleep(1500); // aguarda o service worker inicializar
+    const { targetInfos } = await s.cdp.send('Target.getTargets', {});
+    const sw = targetInfos.find(t => t.type === 'service_worker' && (t.url || '').startsWith('chrome-extension://' + s.adgId + '/'));
+    if (!sw) { adgLog('AdGuard sw não encontrado para allowlist'); return; }
+    const { sessionId } = await s.cdp.send('Target.attachToTarget', { targetId: sw.targetId, flatten: true });
+    await s.cdp.send('Runtime.enable', {}, sessionId);
+    const r = await s.cdp.send('Runtime.evaluate', {
+      expression: `new Promise(r => { chrome.storage.local.get(['allowlist-domains'], d => { const list = Array.isArray(d['allowlist-domains']) ? d['allowlist-domains'] : []; const add = ${JSON.stringify(ADGUARD_ALLOW_HOSTS)}.filter(x => !list.includes(x)); if (!add.length) { r('noop'); return; } chrome.storage.local.set({'allowlist-domains': list.concat(add)}, () => r('ok')); }); })`,
+      awaitPromise: true, returnByValue: true,
+    }, sessionId);
+    adgLog('AdGuard allowlist: ' + (r && r.result && r.result.value));
+  } catch (e) { adgLog('configureAdGuardAllowlist: ' + ((e && e.message) || e)); }
+}
+
 /** carrega o AdGuard (pasta da versão atual) no Chrome da sessão e fecha as páginas que ele abre ao instalar */
 async function loadAdguard(s) {
   const adg = adguardDir();
@@ -449,6 +470,7 @@ async function loadAdguard(s) {
     const r = await s.cdp.send('Extensions.loadUnpacked', { path: adg });
     s.adgDir = adg; s.adgId = r.id;
     adgLog('extensão carregada no Chrome (id ' + r.id + ', versão ' + path.basename(adg) + ')');
+    configureAdGuardAllowlist(s).catch(() => {});
   } catch (e) { adgLog('Extensions.loadUnpacked falhou: ' + ((e && e.message) || e)); }
 }
 
