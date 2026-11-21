@@ -412,6 +412,7 @@ async function stopSession(notify) {
   if (s.cdp) { try { await Promise.race([s.cdp.send('Browser.close'), sleep(1500)]); } catch (_) {} }
   try { s.cdp.ws.close(); } catch (_) {}
   killTree(s.proc);
+  if (s.tbProc) { try { execFile('taskkill', ['/pid', String(s.tbProc.pid), '/T', '/F'], () => {}); } catch (_) {} s.tbProc = null; }
   if (notify && s.sender && !s.sender.isDestroyed()) s.sender.send('browser-ended');
   // espera o Chrome sair de verdade: um Chrome novo no mesmo perfil, aberto antes disso, entrega o pedido ao antigo e fecha ("chrome exited")
   const p = s.proc;
@@ -517,7 +518,7 @@ async function startSession(sender, url, opts, retried) {
   const proc = spawn(chrome, args, { stdio: 'ignore', windowsHide: false });
   const s = { proc, sender, token, cdp: null, sessionId: null, targetId: null, windowId: null, vp: null, vpAt: 0, buttons: 0, lastDown: {}, size: '', owner: null, ownerT: 0, queue: [], moving: false };
   cur = s;
-  proc.on('exit', () => { if (cur === s) { cur = null; clearInterval(s.poll); if (!sender.isDestroyed()) sender.send('browser-ended'); } });
+  proc.on('exit', () => { if (s.tbProc) { try { execFile('taskkill', ['/pid', String(s.tbProc.pid), '/T', '/F'], () => {}); } catch (_) {} s.tbProc = null; } if (cur === s) { cur = null; clearInterval(s.poll); if (!sender.isDestroyed()) sender.send('browser-ended'); } });
 
   try {
     const { port, wsPath } = await waitForPort(profileDir, proc);
@@ -717,13 +718,22 @@ async function applyDisguise(s, sessionId) {
 }
 
 /** tira o botão do Chrome da barra de tarefas sem mexer na janela (esconder a janela derrubaria a captura) */
-function hideFromTaskbar(hwnd) {
-  const cs = 'using System; using System.Runtime.InteropServices;'
+function hideFromTaskbar(s) {
+  if (s.tbProc || !s.proc || !s.proc.pid) return;
+  // um processo escondido confere a cada segundo TODAS as janelas do Chrome (popups e janelas novas também) e tira da barra
+  const cs = 'using System; using System.Collections.Generic; using System.Runtime.InteropServices;'
     + '[ComImport, Guid("56FDF342-FD6D-11d0-958A-006097C9A090"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)] public interface ITaskbarList { void HrInit(); void AddTab(IntPtr h); void DeleteTab(IntPtr h); void ActivateTab(IntPtr h); void SetActiveAlt(IntPtr h); }'
-    + '[ComImport, Guid("56FDF344-FD6D-11d0-958A-006097C9A090")] public class TaskbarList {}';
-  const ps = "Add-Type -TypeDefinition '" + cs + "'; $t = New-Object TaskbarList; $t.HrInit(); $t.DeleteTab([IntPtr]" + Number(hwnd) + ')';
+    + '[ComImport, Guid("56FDF344-FD6D-11d0-958A-006097C9A090")] public class TaskbarList {}'
+    + 'public static class Win { public delegate bool EP(IntPtr h, IntPtr l);'
+    + '[DllImport("user32.dll")] public static extern bool EnumWindows(EP p, IntPtr l);'
+    + '[DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr h, out uint pid);'
+    + '[DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr h);'
+    + 'public static List<IntPtr> Of(uint pid) { var r = new List<IntPtr>(); EnumWindows((h, l) => { uint p; GetWindowThreadProcessId(h, out p); if (p == pid && IsWindowVisible(h)) r.Add(h); return true; }, IntPtr.Zero); return r; } }';
+  const ps = "Add-Type -TypeDefinition '" + cs + "'; $t = New-Object TaskbarList; $t.HrInit(); "
+    + "while ($true) { foreach ($h in [Win]::Of(" + Number(s.proc.pid) + ")) { try { $t.DeleteTab($h) } catch {} }; Start-Sleep -Milliseconds 700 }";
   try {
-    spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-WindowStyle', 'Hidden', '-EncodedCommand', Buffer.from(ps, 'utf16le').toString('base64')], { stdio: 'ignore', windowsHide: true }).on('error', () => {});
+    s.tbProc = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-WindowStyle', 'Hidden', '-EncodedCommand', Buffer.from(ps, 'utf16le').toString('base64')], { stdio: 'ignore', windowsHide: true });
+    s.tbProc.on('error', () => {});
   } catch (_) {}
 }
 
@@ -946,7 +956,7 @@ function registerBrowserIpc() {
     if (!cur || !cur.windowId) return false;
     try {
       await cur.cdp.send('Browser.setWindowBounds', { windowId: cur.windowId, bounds: { windowState: 'normal', left: on ? -12000 : 30, top: on ? 0 : 20 } });
-      if (on && cur.hwnd && process.platform === 'win32' && !cur.taskbarHidden) { cur.taskbarHidden = true; hideFromTaskbar(cur.hwnd); }
+      if (on && process.platform === 'win32') hideFromTaskbar(cur);
       return true;
     } catch (_) { return false; }
   });
