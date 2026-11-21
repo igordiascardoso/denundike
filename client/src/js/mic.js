@@ -7,8 +7,10 @@
   // 'off' = sem tratamento · 'basic' = redução do próprio Chrome · 'ai' = RNNoise
   window.dkNs = {
     mode: () => { const m = read('dk_ns_mode', 'ai'); return m === 'off' || m === 'basic' ? m : 'ai'; },
-    amount: () => num('dk_ns_amt', 0.7),   // quanto do som tratado entra na mistura (0 a 1)
-    gate: () => num('dk_ns_gate', 0),      // 0 = corte desligado; quanto maior, mais alto o limite
+    amount: () => num('dk_ns_amt', 1),     // quanto do som tratado entra na mistura (0 a 1); 1 = só o som tratado, sem vazar ruído
+    gate: () => num('dk_ns_gate', 0.35),
+    // opções com que o microfone é aberto: na IA o Chrome não trata o ruído nem ajusta o ganho sozinho
+    constraints: () => { const m = window.dkNs.mode(); return { echoCancellation: true, noiseSuppression: m === 'basic', autoGainControl: m !== 'ai' }; },   // 0 = corte desligado; quanto maior, mais alto o limite
   };
 
   let wasmCache = null;
@@ -65,11 +67,21 @@
       this.dry.gain.value = useAi ? 1 - k : 1;
       this.wet.gain.value = useAi ? k : 0;
       // com a IA ligada o Chrome não precisa tratar o ruído por conta própria
-      try { this.raw.applyConstraints({ noiseSuppression: mode === 'basic' }).catch(() => {}); } catch (_) {}
+      // o ganho automático do navegador sobe o volume do fundo quando você para de falar: só fica ligado no modo "navegador"
+      try { this.raw.applyConstraints({ noiseSuppression: mode === 'basic', autoGainControl: mode !== 'ai' }).catch(() => {}); } catch (_) {}
       this.volG.gain.value = this.vol;
     }
 
     setVolume(v) { this.vol = v; if (this.volG) this.volG.gain.value = v; }
+
+    /** nível atual (dB) do som já tratado, antes do corte; serve ao medidor das configurações */
+    level() {
+      if (!this.an || this.dead) return -100;
+      this.an.getFloatTimeDomainData(this.buf);
+      let sum = 0;
+      for (let i = 0; i < this.buf.length; i++) sum += this.buf[i] * this.buf[i];
+      return 20 * Math.log10(Math.sqrt(sum / this.buf.length) + 1e-9);
+    }
 
     /** corte de ruído: abaixo do limite o microfone fecha (com uma pausa curta para não cortar o fim das palavras) */
     _startGate() {

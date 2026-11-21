@@ -77,7 +77,7 @@
       try {
         const micId = localStorage.getItem('dk_mic_device');
         const s = await navigator.mediaDevices.getUserMedia({
-          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, ...(micId ? { deviceId: { ideal: micId } } : {}) },
+          audio: { ...(window.dkNs ? window.dkNs.constraints() : { echoCancellation: true, noiseSuppression: true, autoGainControl: true }), ...(micId ? { deviceId: { ideal: micId } } : {}) },
         });
         this._micRaw = s.getAudioTracks()[0];
         this.mic = this._micRaw;

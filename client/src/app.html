@@ -165,6 +165,12 @@ select.in{appearance:none;background:var(--bg0) url("data:image/svg+xml,%3Csvg x
 .aset .ico .i{width:18px;height:18px}
 .aset .l{margin:0}
 .aset .lrow{display:flex;justify-content:space-between}
+.meterwrap{display:grid;gap:6px}
+.meterwrap small{color:var(--dim);font-size:12px}
+.meter{position:relative;height:10px;border-radius:6px;background:var(--bg3);overflow:hidden}
+.meter i{position:absolute;left:0;top:0;bottom:0;width:0;border-radius:6px;background:var(--dim);transition:width .06s linear,background .1s}
+.meter i.on{background:var(--accent)}
+.meter u{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--text);opacity:.85;text-decoration:none}
 .asub{margin-top:4px;padding-top:14px;border-top:1px solid var(--line);font:600 11px var(--body);letter-spacing:.09em;text-transform:uppercase;color:var(--dim)}
 .ahint{color:var(--dim);font-size:12px;line-height:1.45}
 .prof{display:flex;align-items:center;gap:18px;padding:16px;background:var(--bg1);border-radius:var(--r-m);border:1px solid var(--line)}
@@ -760,13 +766,17 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
             <option value="off">Desligada</option>
           </select>
         </label>
-        <label class="l" id="audioNsAmtRow"><span class="lrow">Intensidade <b id="audioNsAmtVal">70%</b></span>
-          <input type="range" id="audioNsAmt" min="0" max="100" value="70" aria-label="Intensidade da redução de ruído">
+        <label class="l" id="audioNsAmtRow"><span class="lrow">Intensidade <b id="audioNsAmtVal">100%</b></span>
+          <input type="range" id="audioNsAmt" min="0" max="100" value="100" aria-label="Intensidade da redução de ruído">
         </label>
         <label class="l"><span class="lrow">Corte de ruído de fundo <b id="audioGateVal">Desligado</b></span>
-          <input type="range" id="audioGate" min="0" max="100" value="0" aria-label="Corte de ruído de fundo">
+          <input type="range" id="audioGate" min="0" max="100" value="35" aria-label="Corte de ruído de fundo">
         </label>
-        <small class="ahint">Intensidade: quanto mais alto, mais ruído (teclado, ventilador) é removido; muito alto pode deixar a voz robótica. Corte: silencia o microfone quando você não está falando; aumente até o ruído sumir sem cortar o começo das palavras.</small>
+        <div class="meterwrap">
+          <div class="meter" id="micMeter" role="img" aria-label="Nível do microfone"><i id="micMeterFill"></i><u id="micMeterThr"></u></div>
+          <small id="micMeterTxt">Fale para ver o nível da sua voz.</small>
+        </div>
+        <small class="ahint">Medidor: a barra mostra o som do seu microfone já limpo. Arraste o corte até a marca ficar acima do barulho de fundo e abaixo da sua voz. Intensidade: quanto mais alto, mais ruído (teclado, ventilador) é removido; muito alto pode deixar a voz robótica. Corte: silencia o microfone quando você não está falando; aumente até o ruído sumir sem cortar o começo das palavras.</small>
       </section>
 
       <section class="aset" aria-labelledby="aOutH">
@@ -1943,6 +1953,34 @@ $('#gFile').onchange = (e) => { const f = e.target.files && e.target.files[0]; e
     $('#audioNsAmtVal').textContent = nsAmt.value + '%';
     $('#audioGateVal').textContent = nsGate.value === '0' ? 'Desligado' : nsGate.value + '%';
   };
+  // medidor ao vivo (-80 a 0 dB); a marca branca é o limite do corte
+  const meter = $('#micMeter'), mFill = $('#micMeterFill'), mThr = $('#micMeterThr'), mTxt = $('#micMeterTxt');
+  let testChain = null, testBusy = false;
+  const dbToPct = (db) => Math.max(0, Math.min(100, (db + 80) / 80 * 100));
+  const stopTest = () => { if (testChain) { try { testChain.destroy(); } catch (_) {} testChain = null; } };
+  setInterval(async () => {
+    const visible = meter && meter.offsetParent !== null;
+    if (!visible) { stopTest(); return; }
+    let chain = call._chain;
+    if (!chain && !testChain && !testBusy && window.MicChain) {
+      testBusy = true;
+      try {
+        const micId = localStorage.getItem('dk_mic_device');
+        const st = await navigator.mediaDevices.getUserMedia({ audio: { ...window.dkNs.constraints(), ...(micId ? { deviceId: { ideal: micId } } : {}) } });
+        const c = new window.MicChain(st.getAudioTracks()[0], 0);   // volume 0: só mede, nada sai
+        await c.init();
+        if (meter.offsetParent !== null && !call._chain) testChain = c; else c.destroy();
+      } catch (_) {}
+      testBusy = false;
+    }
+    chain = call._chain || testChain;
+    if (!chain) { mTxt.textContent = 'Microfone indisponível.'; mFill.style.width = '0'; return; }
+    const db = chain.level(), g = window.dkNs.gate();
+    mFill.style.width = dbToPct(db) + '%';
+    mFill.classList.toggle('on', g > 0 && db > -70 + g * 45);
+    mThr.style.left = g > 0 ? dbToPct(-70 + g * 45) + '%' : '-4px';
+    mTxt.textContent = g > 0 ? 'Barra abaixo da marca = microfone cortado; acima = sua voz passa.' : 'Corte desligado: tudo que o microfone capta passa.';
+  }, 60);
   if (nsMode && nsAmt && nsGate) {
     nsMode.value = window.dkNs.mode();
     nsAmt.value = Math.round(window.dkNs.amount() * 100);
