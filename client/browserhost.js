@@ -789,6 +789,12 @@ async function navigate(s, n) {
   if (n.action === 'go') {
     if (!isWebUrl(n.url)) return;
     await c.send('Page.navigate', { url: n.url }, sid);
+  } else if (n.action === 'tab_switch' && n.id) {
+    await switchTab(s, String(n.id));
+  } else if (n.action === 'tab_close' && n.id) {
+    if (s.tabs && s.tabs.has(String(n.id))) await c.send('Target.closeTarget', { targetId: String(n.id) });
+  } else if (n.action === 'tab_new') {
+    await c.send('Target.createTarget', { url: 'https://www.google.com' });
   } else if (n.action === 'reload') {
     await c.send('Page.reload', {}, sid);
   } else if (n.action === 'back' || n.action === 'forward') {
@@ -929,7 +935,7 @@ function registerBrowserIpc() {
   });
   ipcMain.handle('browser-nav', async (_e, n) => {
     if (!cur || !n || typeof n !== 'object') return false;
-    try { await navigate(cur, { action: String(n.action), url: n.url }); return true; } catch (_) { return false; }
+    try { await navigate(cur, { action: String(n.action), url: n.url, id: n.id }); return true; } catch (_) { return false; }
   });
   ipcMain.handle('browser-input', async (_e, p) => {
     if (!cur || !p || typeof p !== 'object' || !p.ev || typeof p.ev !== 'object') return false;

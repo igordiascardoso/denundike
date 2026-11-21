@@ -41,7 +41,12 @@
         window.bridge.browser.onSize(() => this._recalibrateSoon());
         window.bridge.browser.onFrame((d) => this._onFrame(d));
         window.bridge.browser.onAudio((d) => this._onAudio(d));
-        window.bridge.browser.onTabs((t) => this._renderTabs(t));
+        // o anfitrião publica as abas do Chrome dele; todos recebem pelo estado do servidor e podem trocar, fechar e abrir
+        window.bridge.browser.onTabs((t) => {
+          this.localTabs = t;
+          if (this.isHost) this._sendCall('browser_tabs', { tabs: t });
+          this._renderTabs(t);
+        });
         window.bridge.browser.onMotion((m) => {
           const t = this.local && this.local.out && this.local.out.getVideoTracks()[0];
           // no modo automático o app troca a dica quando há vídeo tocando na página; nos outros modos vale a escolha do usuário
@@ -77,32 +82,36 @@
       } catch (_) {}
     }
 
-    /** barra de abas do anfitrião (as abas são do Chrome dele; os outros só veem a transmissão) */
+    /** barra de abas: todos veem; trocar, fechar e abrir aba vale para a sessão inteira */
     _renderTabs(tabs) {
       const box = document.getElementById('bTabs');
       if (!box) return;
-      if (!this.local || !tabs || !tabs.length) { box.hidden = true; box.textContent = ''; return; }
+      const shown = this.state.active && !this.hiddenLocal;
+      if (!shown || !tabs || !tabs.length) { box.hidden = true; box.textContent = ''; return; }
       box.hidden = false;
       box.textContent = '';
-      const tb = window.bridge.browser;
+      const send = (action, id) => {
+        if (this.isHost && this.local) window.bridge.browser.tab({ action, id });
+        else this._sendCall('browser_nav', id ? { action: 'tab_' + action, id } : { action: 'tab_' + action });
+      };
       for (const t of tabs) {
         const el = document.createElement('div');
         el.className = 'btab' + (t.active ? ' on' : '');
         const label = document.createElement('span');
-        label.textContent = t.title || t.url.replace(/^https?:\/\/(www\.)?/, '') || 'Nova aba';
+        label.textContent = t.title || (t.url || '').replace(/^https?:\/\/(www\.)?/, '') || 'Nova aba';
         const x = document.createElement('b');
         x.textContent = '×';
         x.title = 'Fechar aba';
-        x.onclick = (e) => { e.stopPropagation(); tb.tab({ action: 'close', id: t.id }); };
+        x.onclick = (e) => { e.stopPropagation(); send('close', t.id); };
         el.append(label, x);
-        el.onclick = () => tb.tab({ action: 'switch', id: t.id });
+        el.onclick = () => send('switch', t.id);
         box.append(el);
       }
       const add = document.createElement('div');
       add.className = 'btab add';
       add.textContent = '+';
       add.title = 'Nova aba';
-      add.onclick = () => tb.tab({ action: 'new' });
+      add.onclick = () => send('new');
       box.append(add);
     }
 
@@ -518,8 +527,9 @@
       if (session && this.hiddenLocal) e.open.textContent = 'Sessão de navegador ativa de ' + (this.isHost ? 'você' : '@' + this.state.host_login) + ' — abrir';
       e.btn.classList.toggle('on', session);
       e.btn.title = active ? (this.isHost ? 'Encerrar navegador compartilhado' : 'Navegador compartilhado (ativo)') : 'Abrir navegador compartilhado';
-      if (!active) { e.video.srcObject = null; this._drawCursors(); return; }
+      if (!active) { e.video.srcObject = null; this._drawCursors(); this._renderTabs(null); return; }
       e.who.textContent = this.isHost ? 'Você está transmitindo' : 'Transmitido por @' + this.state.host_login;
+      this._renderTabs(this.isHost && this.local ? (this.localTabs || []) : (this.state.tabs || []));
       e.stop.hidden = !this.isHost;
       if (document.activeElement !== e.url) e.url.value = this.state.url || '';
       const stream = this.isHost ? (this.local && this.local.out) : this.o.call.browserStreamOf(this.state.host_id);

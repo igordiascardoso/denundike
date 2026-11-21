@@ -12,6 +12,9 @@ const (
 	defaultBrowserURL = "https://www.google.com"
 	maxURLLen         = 2048
 	maxInputPerSec    = 240
+	maxTabs           = 24
+	maxTabIDLen       = 64
+	maxTabTitleRunes  = 120
 )
 
 // browserSession is the shared browser of one voice room. The host runs a real
@@ -20,6 +23,28 @@ type browserSession struct {
 	hostID    string
 	hostLogin string
 	url       string
+	tabs      []browserTab
+}
+
+// browserTab is one tab of the host's Chrome, as published by the host for everybody to see.
+type browserTab struct {
+	ID     string `json:"id"`
+	Title  string `json:"title"`
+	URL    string `json:"url"`
+	Active bool   `json:"active"`
+}
+
+// validTabID accepts the ids Chrome uses for its targets (hex and dashes) and nothing else.
+func validTabID(id string) bool {
+	if id == "" || len(id) > maxTabIDLen {
+		return false
+	}
+	for _, r := range id {
+		if !(r >= '0' && r <= '9' || r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r == '-' || r == '_') {
+			return false
+		}
+	}
+	return true
 }
 
 func validWebURL(raw string) bool {
@@ -39,7 +64,7 @@ func browserStateMsg(channelID string, b *browserSession) map[string]any {
 	}
 	return map[string]any{
 		"type": "browser_state", "channel_id": channelID, "active": true,
-		"host_id": b.hostID, "host_login": b.hostLogin, "url": b.url,
+		"host_id": b.hostID, "host_login": b.hostLogin, "url": b.url, "tabs": b.tabs,
 	}
 }
 
@@ -138,9 +163,44 @@ func (h *Hub) browserURL(c *Client, in inbound) {
 	h.NotifyUsers(ids, msg)
 }
 
+// browserTabs lets the host publish its tab list; it rides along with the shared-browser state.
+func (h *Hub) browserTabs(c *Client, in inbound) {
+	var d struct {
+		Tabs []browserTab `json:"tabs"`
+	}
+	if json.Unmarshal(in.Data, &d) != nil || len(d.Tabs) > maxTabs {
+		return
+	}
+	clean := make([]browserTab, 0, len(d.Tabs))
+	for _, t := range d.Tabs {
+		if !validTabID(t.ID) {
+			return
+		}
+		if utf8.RuneCountInString(t.Title) > maxTabTitleRunes {
+			t.Title = string([]rune(t.Title)[:maxTabTitleRunes])
+		}
+		if t.URL != "" && !validWebURL(t.URL) {
+			t.URL = ""
+		}
+		clean = append(clean, t)
+	}
+	h.voice.mu.Lock()
+	room := h.voice.rooms[in.ChannelID]
+	if room == nil || room.browser == nil || room.browser.hostID != c.userID {
+		h.voice.mu.Unlock()
+		return
+	}
+	room.browser.tabs = clean
+	msg := browserStateMsg(in.ChannelID, room.browser)
+	ids := memberIDs(room)
+	h.voice.mu.Unlock()
+	h.NotifyUsers(ids, msg)
+}
+
 type navCmd struct {
 	Action string `json:"action"`
 	URL    string `json:"url,omitempty"`
+	ID     string `json:"id,omitempty"`
 }
 
 type inputCmd struct {
@@ -219,14 +279,19 @@ func (h *Hub) browserCmd(c *Client, in inbound, kind string) {
 			return
 		}
 		switch n.Action {
-		case "back", "forward", "reload":
+		case "back", "forward", "reload", "tab_new":
+			n.URL, n.ID = "", ""
+		case "tab_switch", "tab_close":
+			if !validTabID(n.ID) {
+				return
+			}
 			n.URL = ""
 		case "go":
 			if !validWebURL(strings.TrimSpace(n.URL)) {
 				c.browserError("invalid url")
 				return
 			}
-			n.URL = strings.TrimSpace(n.URL)
+			n.URL, n.ID = strings.TrimSpace(n.URL), ""
 		default:
 			return
 		}

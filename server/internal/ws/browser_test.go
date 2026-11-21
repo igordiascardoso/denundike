@@ -1,6 +1,11 @@
 package ws_test
 
-import "testing"
+import (
+	"strings"
+	"testing"
+
+	"github.com/gorilla/websocket"
+)
 
 func TestBrowserSessionLifecycle(t *testing.T) {
 	env := setupVoice(t)
@@ -160,5 +165,65 @@ func TestBrowserEndsWhenHostLeavesAndLateJoinerSeesState(t *testing.T) {
 	send(t, h, map[string]any{"type": "voice_leave"})
 	if s := expect(t, a, "browser_state"); s["active"] != false {
 		t.Fatalf("sessão devia acabar: %v", s)
+	}
+}
+
+func TestBrowserTabsPublishedByHostAndDrivenByEveryone(t *testing.T) {
+	env := setupVoice(t)
+	hostTok, _ := env.member(t, "host")
+	gTok, _ := env.member(t, "ana")
+	h := dialWS(t, env.srv, hostTok)
+	a := dialWS(t, env.srv, gTok)
+	send(t, h, map[string]any{"type": "voice_join", "channel_id": env.voiceID})
+	expect(t, h, "voice_peers")
+	send(t, a, map[string]any{"type": "voice_join", "channel_id": env.voiceID})
+	expect(t, a, "voice_peers")
+	send(t, h, map[string]any{"type": "browser_start", "channel_id": env.voiceID})
+	expect(t, h, "browser_state")
+	expect(t, a, "browser_state")
+
+	tabs := []map[string]any{
+		{"id": "AAA-1", "title": "Google", "url": "https://www.google.com/", "active": true},
+		{"id": "BBB-2", "title": "Filme", "url": "https://exemplo.com/f", "active": false},
+	}
+	// convidado não publica abas: se o servidor aceitasse, o primeiro estado traria só a aba "EVIL-1"
+	send(t, a, map[string]any{"type": "browser_tabs", "channel_id": env.voiceID, "data": map[string]any{"tabs": []map[string]any{{"id": "EVIL-1", "title": "x", "url": "", "active": true}}}})
+	// o anfitrião publica e todos recebem junto com o estado
+	send(t, h, map[string]any{"type": "browser_tabs", "channel_id": env.voiceID, "data": map[string]any{"tabs": tabs}})
+	for _, c := range []*websocket.Conn{h, a} {
+		m := expect(t, c, "browser_state")
+		got, _ := m["tabs"].([]any)
+		if len(got) != 2 || got[1].(map[string]any)["id"] != "BBB-2" {
+			t.Fatalf("estado deveria trazer as 2 abas: %v", m["tabs"])
+		}
+	}
+
+	// comandos inválidos primeiro: se algum passasse, chegaria ao anfitrião antes dos válidos
+	for _, bad := range []map[string]any{
+		{"action": "tab_switch", "id": ""},
+		{"action": "tab_close", "id": "../../etc/passwd"},
+		{"action": "tab_switch", "id": strings.Repeat("x", 200)},
+	} {
+		send(t, a, map[string]any{"type": "browser_nav", "channel_id": env.voiceID, "data": bad})
+	}
+	// o convidado troca, fecha e abre abas; o anfitrião recebe esses, na ordem
+	for _, ok := range []map[string]any{
+		{"action": "tab_switch", "id": "BBB-2"},
+		{"action": "tab_close", "id": "AAA-1"},
+		{"action": "tab_new"},
+	} {
+		send(t, a, map[string]any{"type": "browser_nav", "channel_id": env.voiceID, "data": ok})
+		m := expect(t, h, "browser_cmd")
+		if m["data"].(map[string]any)["action"] != ok["action"] {
+			t.Fatalf("comando de aba inesperado: %v", m)
+		}
+	}
+	// quem entra depois já vê as abas
+	lateTok, _ := env.member(t, "caio")
+	l := dialWS(t, env.srv, lateTok)
+	send(t, l, map[string]any{"type": "voice_join", "channel_id": env.voiceID})
+	expect(t, l, "voice_peers")
+	if m := expect(t, l, "browser_state"); len(m["tabs"].([]any)) != 2 {
+		t.Fatalf("quem entra depois deveria ver as abas: %v", m)
 	}
 }

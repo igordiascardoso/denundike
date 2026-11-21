@@ -72,6 +72,8 @@ func (c *Client) handleFrame(raw []byte) {
 		c.hub.browserStop(c, in)
 	case "browser_url":
 		c.hub.browserURL(c, in)
+	case "browser_tabs":
+		c.hub.browserTabs(c, in)
 	case "browser_nav":
 		c.hub.browserCmd(c, in, "nav")
 	case "browser_input":
