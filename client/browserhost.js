@@ -512,6 +512,8 @@ async function startSession(sender, url, opts, retried) {
   // o som sai pelo app (volume próprio do anfitrião), não direto pelo Chrome
   // o som sai pelo app (volume próprio do anfitrião), não direto pelo Chrome
   args.push('--mute-audio');
+  // sem isto o Chrome entrega SILÊNCIO ao app para áudio/vídeo vindo de outro domínio sem CORS (a maioria dos sites de streaming)
+  args.push('--disable-web-security');
   if (CAST) args.push('--headless=new');
   // Ubuntu e derivados podem não ter user namespaces habilitados; --no-sandbox resolve
   if (process.platform === 'linux') args.push('--no-sandbox');
