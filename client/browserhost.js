@@ -712,8 +712,6 @@ async function startSession(sender, url, opts, retried) {
 // Som: o Chrome sem janela não tem como ser gravado pelo sistema, então a própria página manda o áudio dos
 // <video>/<audio> para o app. Só o som da página do navegador do app vai para a chamada, nunca o do resto do PC.
 const AUDIO_JS = `(() => {
-  // sites de DRM / anti-robô: som protegido não dá para captar e qualquer mexida no player faz o site recusar o navegador
-  if (/(^|[.])(cloudflare[.]com|netflix[.]com|primevideo[.]com|disneyplus[.]com|hbomax[.]com|max[.]com|nflxvideo[.]net)$/.test(location.hostname)) return;
   if (window.__dndkA) return; window.__dndkA = 1;
   let ac, master;
   const init = () => {
@@ -740,7 +738,6 @@ const AUDIO_JS = `(() => {
   };
   // sites que tocam só por WebAudio (sem <video>/<audio>): quem liga no destino da página também liga num captador
   try {
-    if (/(^|[.])(cloudflare[.]com|netflix[.]com|primevideo[.]com|disneyplus[.]com|hbomax[.]com|max[.]com|nflxvideo[.]net)$/.test(location.hostname)) throw 0;
     const conn = AudioNode.prototype.connect;
     AudioNode.prototype.connect = function (dest) {
       try {
