@@ -28,17 +28,6 @@ function winGenuineChromePath() {
   return path.join(app.getPath('userData'), 'chrome-genuine', 'Google', 'Chrome', 'Application', 'chrome.exe');
 }
 
-// Windows: Chrome instalado no sistema (tem Widevine nativo)
-function findSystemChrome() {
-  if (process.platform !== 'win32') return null;
-  const locs = [
-    path.join(process.env['PROGRAMFILES'] || 'C:\\Program Files', 'Google', 'Chrome', 'Application', 'chrome.exe'),
-    path.join(process.env['LOCALAPPDATA'] || '', 'Google', 'Chrome', 'Application', 'chrome.exe'),
-    path.join(process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)', 'Google', 'Chrome', 'Application', 'chrome.exe'),
-  ];
-  for (const p of locs) { if (p && fs.existsSync(p)) return p; }
-  return null;
-}
 
 function findChrome() {
   if (process.env.DENUNDIKE_CHROME && fs.existsSync(process.env.DENUNDIKE_CHROME)) return process.env.DENUNDIKE_CHROME;
@@ -47,12 +36,10 @@ function findChrome() {
     return fs.existsSync(p) ? p : null;
   }
   if (process.platform === 'win32') {
-    // Preferência: Chrome genuíno (tem Widevine/DRM para Netflix etc.)
-    const sys = findSystemChrome();
-    if (sys) return sys;
+    // Chrome genuíno baixado pelo app (tem Widevine/DRM para Netflix etc.)
     const gen = winGenuineChromePath();
     if (fs.existsSync(gen)) return gen;
-    // Fallback: Chrome for Testing (sem DRM, mas funcional)
+    // Fallback: Chrome for Testing baixado pelo app (sem DRM, mas funcional)
     const cft = winManagedChromePath();
     return fs.existsSync(cft) ? cft : null;
   }
