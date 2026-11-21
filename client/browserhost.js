@@ -661,20 +661,41 @@ const AUDIO_JS = `(() => {
     master = ac.createGain(); master.connect(ac.destination);
     const proc = ac.createScriptProcessor(4096, 2, 2);
     master.connect(proc); proc.connect(ac.destination);
-    proc.onaudioprocess = (e) => {
-      const a = e.inputBuffer.getChannelData(0), b = e.inputBuffer.getChannelData(1), n = a.length, buf = new Int16Array(n * 2);
-      let any = false;
-      for (let i = 0; i < n; i++) {
-        const l = a[i], r = b[i];
-        if (l > 0.0005 || l < -0.0005 || r > 0.0005 || r < -0.0005) any = true;
-        buf[2 * i] = Math.max(-1, Math.min(1, l)) * 32767; buf[2 * i + 1] = Math.max(-1, Math.min(1, r)) * 32767;
-      }
-      if (!any) return;
-      const u = new Uint8Array(buf.buffer); let str = '';
-      for (let i = 0; i < u.length; i += 8192) str += String.fromCharCode.apply(null, u.subarray(i, i + 8192));
-      try { window.__dndkAudio(btoa(str)); } catch (_) {}
-    };
+    proc.onaudioprocess = (e) => emit(e.inputBuffer.getChannelData(0), e.inputBuffer.getChannelData(1), 48000);
   };
+  // manda um bloco de som para o app (reamostra para 48 kHz se o contexto da página for de outra taxa)
+  const emit = (a, b, sr) => {
+    const n = sr === 48000 ? a.length : Math.round(a.length * 48000 / sr), buf = new Int16Array(n * 2);
+    let any = false;
+    for (let i = 0; i < n; i++) {
+      const k = sr === 48000 ? i : Math.min(a.length - 1, Math.floor(i * sr / 48000)), l = a[k], r = b[k];
+      if (l > 0.0005 || l < -0.0005 || r > 0.0005 || r < -0.0005) any = true;
+      buf[2 * i] = Math.max(-1, Math.min(1, l)) * 32767; buf[2 * i + 1] = Math.max(-1, Math.min(1, r)) * 32767;
+    }
+    if (!any) return;
+    const u = new Uint8Array(buf.buffer); let str = '';
+    for (let i = 0; i < u.length; i += 8192) str += String.fromCharCode.apply(null, u.subarray(i, i + 8192));
+    try { window.__dndkAudio(btoa(str)); } catch (_) {}
+  };
+  // sites que tocam só por WebAudio (sem <video>/<audio>): quem liga no destino da página também liga num captador
+  try {
+    const conn = AudioNode.prototype.connect;
+    AudioNode.prototype.connect = function (dest) {
+      try {
+        if (dest && dest.context && dest === dest.context.destination && dest.context !== ac && this.context === dest.context) {
+          const c = dest.context;
+          if (!c.__dndkTap) {
+            const t = c.createScriptProcessor(4096, 2, 2);
+            t.onaudioprocess = (e) => emit(e.inputBuffer.getChannelData(0), e.inputBuffer.getChannelData(1), c.sampleRate);
+            conn.call(t, c.destination);
+            c.__dndkTap = t;
+          }
+          conn.call(this, c.__dndkTap);
+        }
+      } catch (_) {}
+      return conn.apply(this, arguments);
+    };
+  } catch (_) {}
   const hook = (el) => {
     if (el.__dndk) return; el.__dndk = 1;
     try { init(); ac.resume(); ac.createMediaElementSource(el).connect(master); } catch (_) {}
@@ -682,6 +703,48 @@ const AUDIO_JS = `(() => {
   const play = HTMLMediaElement.prototype.play;
   HTMLMediaElement.prototype.play = function () { hook(this); return play.apply(this, arguments); };
   setInterval(() => document.querySelectorAll('video,audio').forEach((el) => { if (!el.paused) hook(el); }), 1000);
+})();`;
+
+// Tela cheia dos players: a janela do Chrome fica escondida e o Chrome não entra em tela cheia de verdade ali.
+// O app simula: o elemento (ou o iframe do player) preenche toda a área da página compartilhada.
+const FS_JS = `(() => {
+  if (window.__dndkF) return; window.__dndkF = 1;
+  const FULL = 'position:fixed!important;inset:0!important;width:100vw!important;height:100vh!important;max-width:none!important;max-height:none!important;z-index:2147483646!important;background:#000!important;margin:0!important;transform:none!important;border:0!important';
+  let cur = null, saved = null;
+  const fire = () => { try { document.dispatchEvent(new Event('fullscreenchange')); document.dispatchEvent(new Event('webkitfullscreenchange')); if (cur) cur.dispatchEvent(new Event('fullscreenchange', { bubbles: true })); } catch (_) {} };
+  const tell = (on) => { try { if (window.parent !== window) window.parent.postMessage({ __dndkfs: 1, on }, '*'); } catch (_) {} };
+  const exit = () => {
+    if (!cur) return Promise.resolve();
+    const el = cur; cur = null;
+    if (saved === null) el.removeAttribute('style'); else el.setAttribute('style', saved);
+    tell(false); try { el.dispatchEvent(new Event('fullscreenchange', { bubbles: true })); } catch (_) {} fire();
+    return Promise.resolve();
+  };
+  const enter = function () {
+    if (cur === this) return Promise.resolve();
+    if (cur) exit();
+    cur = this; saved = this.getAttribute('style');
+    this.style.cssText = (saved ? saved + ';' : '') + FULL;
+    tell(true); fire();
+    return Promise.resolve();
+  };
+  try {
+    Element.prototype.requestFullscreen = enter; Element.prototype.webkitRequestFullscreen = enter; Element.prototype.webkitRequestFullScreen = enter;
+    Document.prototype.exitFullscreen = exit; Document.prototype.webkitExitFullscreen = exit; Document.prototype.webkitCancelFullScreen = exit;
+    for (const k of ['fullscreenElement', 'webkitFullscreenElement', 'webkitCurrentFullScreenElement']) Object.defineProperty(Document.prototype, k, { get() { return cur; }, configurable: true });
+    for (const k of ['fullscreenEnabled', 'webkitFullscreenEnabled']) Object.defineProperty(Document.prototype, k, { get() { return true; }, configurable: true });
+    Object.defineProperty(Document.prototype, 'webkitIsFullScreen', { get() { return !!cur; }, configurable: true });
+  } catch (_) {}
+  window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && cur) exit(); }, true);
+  // player dentro de iframe: o iframe inteiro preenche a página (e assim por diante, se houver iframes aninhados)
+  window.addEventListener('message', (e) => {
+    const d = e.data; if (!d || d.__dndkfs !== 1) return;
+    const f = [...document.querySelectorAll('iframe')].find((x) => x.contentWindow === e.source);
+    if (!f) return;
+    if (d.on) { f.__dndkSaved = f.getAttribute('style'); f.style.cssText = (f.__dndkSaved ? f.__dndkSaved + ';' : '') + FULL; }
+    else if (f.__dndkSaved === null || f.__dndkSaved === undefined) f.removeAttribute('style'); else f.setAttribute('style', f.__dndkSaved);
+    tell(d.on);
+  });
 })();`;
 
 // Sem janela o Chrome se entrega como "Headless" (agente de usuário, client hints, WebGL por software) e sites com
@@ -747,6 +810,7 @@ async function setupAudio(s, sessionId) {
     await s.cdp.send('Runtime.enable', {}, sessionId);
     await s.cdp.send('Runtime.addBinding', { name: '__dndkAudio' }, sessionId);
     await s.cdp.send('Page.addScriptToEvaluateOnNewDocument', { source: AUDIO_JS, runImmediately: true }, sessionId);
+    await s.cdp.send('Page.addScriptToEvaluateOnNewDocument', { source: FS_JS, runImmediately: true }, sessionId);
   } catch (_) {}
 }
 

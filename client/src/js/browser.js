@@ -62,6 +62,7 @@
     _onAudio(b64) {
       const L = this.local;
       if (!L || !L.actx) return;
+      if (L.actx.state === 'suspended') L.actx.resume().catch(() => {});
       try {
         const bin = atob(b64), n = bin.length;
         const u = new Uint8Array(n);
