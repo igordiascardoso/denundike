@@ -76,9 +76,14 @@ Data: 2026-11-18
 4. Clicar "Compartilhar aba" na janela ANFITRIAO
 5. Tocar conteúdo DRM no Chrome, verificar viewer
 
+**Testado em:** 2026-11-18 (manual)
+
 **Resultado:**
-- Captura da janela Chrome funciona: sim / não
-- Conteúdo DRM no viewer: vídeo ok / preto / áudio ok mas vídeo preto / tudo preto
+- Captura da janela Chrome funciona: **SIM** ✅
+- Conteúdo DRM no viewer: **vídeo ok + áudio ok** ✅
+- Resolução observada: **652x720 25fps 2.27Mbps**
+- Packets lost: **0**
+- Requisito: hw acceleration OFF no Chrome (`chrome://settings/system`)
 
 ---
 
